@@ -1,0 +1,87 @@
+buttons:
+  pureLoginOut: Đăng xuất
+  pureLogin: Đăng nhập
+  pureOpenSystemSet: Mở Cài đặt Hệ thống
+  pureReload: Tải lại
+  pureCloseCurrentTab: Đóng Tab Hiện tại
+  pureCloseLeftTabs: Đóng Các Tab Bên trái
+  pureCloseRightTabs: Đóng Các Tab Bên phải
+  pureCloseOtherTabs: Đóng Các Tab Khác
+  pureCloseAllTabs: Đóng Tất cả Các Tab
+  pureContentFullScreen: Toàn màn hình Nội dung
+  pureContentExitFullScreen: Thoát Toàn màn hình Nội dung
+  pureClickCollapse: Thu gọn
+  pureClickExpand: Mở rộng
+  pureConfirm: Xác nhận
+  pureSwitch: Chuyển đổi
+  pureClose: Đóng
+  pureBackTop: Quay lại đầu trang
+  pureOpenText: Mở
+  pureCloseText: Đóng
+search:
+  pureTotal: Tổng cộng
+  pureHistory: Lịch sử
+  pureCollect: Thu thập
+  pureDragSort: (Kéo và Sắp xếp)
+  pureEmpty: Trống
+  purePlaceholder: Tìm kiếm Menu
+panel:
+  pureSystemSet: Cài đặt Hệ thống
+  pureCloseSystemSet: Đóng Cài đặt Hệ thống
+  pureClearCacheAndToLogin: Xóa cache và quay lại trang đăng nhập
+  pureClearCache: Xóa Cache
+  pureOverallStyle: Kiểu Tổng thể
+  pureOverallStyleLight: Sáng
+  pureOverallStyleLightTip: Đặt cánh buồm mới và làm sáng giao diện làm việc thoải mái
+  pureOverallStyleDark: Tối
+  pureOverallStyleDarkTip: Mở màn trăng, say mê trong sự yên bình và thanh lịch của đêm
+  pureOverallStyleSystem: Tự động
+  pureOverallStyleSystemTip: Đồng bộ hóa thời gian, giao diện tự nhiên phản ứng với buổi sáng và hoàng hôn
+  pureThemeColor: Màu Chủ đề
+  pureLayoutModel: Mô hình Bố trí
+  pureVerticalTip: Menu bên trái quen thuộc và thân thiện
+  pureHorizontalTip: Menu trên đầu, tổng quan ngắn gọn
+  pureMixTip: Menu kết hợp, linh hoạt
+  pureStretch: Kéo Dãn Trang
+  pureStretchFixed: Cố định
+  pureStretchFixedTip: Trang gọn gàng giúp dễ dàng tìm thông tin bạn cần
+  pureStretchCustom: Tùy chỉnh
+  pureStretchCustomTip: Tối thiểu 1280, tối đa 1600
+  pureTagsStyle: Kiểu Tags
+  pureTagsStyleSmart: Thông minh
+  pureTagsStyleSmartTip: Tags thông minh tạo thêm niềm vui và sự lộng lẫy
+  pureTagsStyleCard: Thẻ
+  pureTagsStyleCardTip: Tags thẻ cho việc duyệt web hiệu quả
+  pureInterfaceDisplay: Hiển thị Giao diện
+  pureGreyModel: Mô hình Màu xám
+  pureWeakModel: Mô hình Yếu
+  pureHiddenTags: Ẩn Tags
+  pureHiddenFooter: Ẩn Footer
+  pureMultiTagsCache: Cache Nhiều Tags
+menus:
+  pureHome: Trang chủ
+  pureLogin: Đăng nhập
+  pureAbnormal: Trang bất thường
+  pureFourZeroFour: "404"
+  pureFourZeroOne: "403"
+  pureFive: "500"
+  purePermission: Quản lý Phân quyền
+  purePermissionPage: Phân quyền Trang
+  purePermissionButton: Phân quyền Nút
+status:
+  pureLoad: Đang tải...
+  pureMessage: Tin nhắn
+  pureNotify: Thông báo
+  pureTodo: Việc cần làm
+  pureNoMessage: Không có tin nhắn
+  pureNoNotify: Không có thông báo
+  pureNoTodo: Không có việc cần làm
+login:
+  pureUsername: Tên người dùng
+  purePassword: Mật khẩu
+  pureLogin: Đăng nhập
+  pureLoginSuccess: Đăng nhập thành công
+  pureLoginFail: Đăng nhập thất bại
+  pureUsernameReg: Vui lòng nhập tên người dùng
+  purePassWordReg: Vui lòng nhập mật khẩu
+  purePassWordRuleReg: Định dạng mật khẩu phải là bất kỳ sự kết hợp nào của 8-18 chữ số
