@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate lazy_static;
+
 mod controller;
 mod domain;
 mod extension;
@@ -7,13 +10,15 @@ mod model;
 mod router;
 mod schedule;
 mod service;
+mod wsserver;
 
 use zino::prelude::*;
+use zino_core::application::ServerTag;
 
 fn main() {
     zino::Cluster::boot()
-        .register(router::routes())
         .register_debug(router::debug_routes())
+        .register_with(ServerTag::Main, router::main_routes())
         .spawn(schedule::job_scheduler())
-        .run_with(schedule::async_job_scheduler())
+        .run_with(schedule::async_job_scheduler());
 }

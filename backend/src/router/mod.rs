@@ -1,23 +1,32 @@
+use std::sync::{atomic::AtomicUsize, Arc};
+
 use crate::{
     controller::{auth, file, stats, user},
     middleware,
-    model::Tag,
+    model::Tag, wsserver::{self, server::{self, ChatServer}},
 };
-use actix_web::web::{get, post, scope, ServiceConfig};
+use actix::{Actor, Addr};
+use actix_web::web::{self, get, post, scope, ServiceConfig};
 use zino::{DefaultController, RouterConfigure};
 use zino_model::User;
 
-pub fn routes() -> Vec<RouterConfigure> {
+lazy_static! {
+    static ref APP_STATE: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
+    static ref SERVER: Addr<ChatServer> = server::ChatServer::new(APP_STATE.clone()).start();
+}
+
+pub fn main_routes() -> Vec<RouterConfigure> {
     vec![
         auth_router as RouterConfigure,
+        ws_router as RouterConfigure,
         file_router as RouterConfigure,
-        user_router as RouterConfigure,
-        tag_router as RouterConfigure,
     ]
 }
 
 pub fn debug_routes() -> Vec<RouterConfigure> {
     vec![
+        user_router as RouterConfigure,
+        tag_router as RouterConfigure,
         stats_router as RouterConfigure,
         user_debug_router as RouterConfigure,
         tag_debug_router as RouterConfigure,
@@ -32,6 +41,20 @@ fn auth_router(cfg: &mut ServiceConfig) {
             .route("/logout", post().to(auth::logout))
             .wrap(middleware::UserSessionInitializer),
     );
+}
+
+fn ws_router(cfg: &mut ServiceConfig) {
+    cfg.service(
+        scope("/ws")
+            .route("/chat", web::get().to(wsserver::chat_route))
+            // .wrap(middleware::UserSessionInitializer)
+            .app_data(web::Data::from(APP_STATE.clone()))
+            .app_data(web::Data::new(SERVER.clone()))
+            ,
+    );
+    cfg.route("/clientchat", web::get().to(wsserver::chat_route))
+    .app_data(web::Data::from(APP_STATE.clone()))
+    .app_data(web::Data::new(SERVER.clone()));
 }
 
 fn file_router(cfg: &mut ServiceConfig) {

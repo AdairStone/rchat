@@ -13,7 +13,7 @@ pub fn every_15s(job_id: Uuid, job_data: &mut Map, last_tick: DateTime) {
 }
 
 pub fn every_20s(job_id: Uuid, job_data: &mut Map, last_tick: DateTime) {
-    let counter = job_data
+    let counter: u64 = job_data
         .get("counter")
         .map(|c| c.as_u64().unwrap_or_default() + 1)
         .unwrap_or_default();

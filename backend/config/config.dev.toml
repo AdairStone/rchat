@@ -2,6 +2,7 @@
 
 name = "data-cube"
 version = "0.6.4"
+secret = "wangdeman"
 
 [dirs]
 uploads = "local/uploads"
@@ -14,15 +15,15 @@ port = 6070
 host = "127.0.0.1"
 port = 6080
 
-[[standby]]
-host = "127.0.0.1"
-port = 6081
-tag = "portal"
+# [[standby]]
+# host = "127.0.0.1"
+# port = 6081
+# tag = "portal"
 
-[[standby]]
-host = "127.0.0.1"
-port = 6082
-tag = "admin"
+# [[standby]]
+# host = "127.0.0.1"
+# port = 6082
+# tag = "admin"
 
 [database]
 namespace = "dc"
@@ -35,11 +36,8 @@ database = "data_cube"
 username = "postgres"
 password = "123456"
 
-[[sqlite]]
-database = "local/data/main.db"
-
 [tracing]
-filter = "info,sqlx=info,zino=trace,zino_core=trace"
+filter = "debug,sqlx=info,zino=info,zino_core=info"
 
 [metrics]
 exporter = "prometheus"
