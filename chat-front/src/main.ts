@@ -4,11 +4,12 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 
 import App from './App.vue'
-import router from './router'
 
-const app = createApp(App)
+const app = createApp(App, {
+    compilerOptions: {
+        isCustomElement: (tag: string) => tag === 'emoji-picker'
+    }
+})
 
 app.use(createPinia())
-app.use(router)
-
-app.mount('#app')
+app.mount('#adabibichatapp')

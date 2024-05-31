@@ -27,6 +27,20 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    target: 'esnext',
+    outDir: 'dist',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vue: ['vue'],
+        },
+        entryFileNames: 'chat.js', // 输出文件名
+        chunkFileNames: '[name]-[hash].js', // 其他 chunk 文件名
+        assetFileNames: '[name]-[hash][extname]', // 其他静态资源文件名
+      },
+    },
+  },
   // server: {
   //   proxy: {
   //     // 代理 '/api' 到 'http://localhost:3000/api'

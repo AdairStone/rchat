@@ -1,8 +1,7 @@
-use std::{sync::atomic::{AtomicUsize, Ordering}, time::Instant};
+use std::time::Instant;
 
 use actix::Addr;
-use actix_files::NamedFile;
-use actix_web::{web, Error, HttpRequest, HttpResponse, Responder};
+use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 
 pub mod server;
@@ -27,12 +26,12 @@ pub async fn chat_route(
     )
 }
 
-async fn index() -> impl Responder {
-    NamedFile::open_async("./static/index.html").await.unwrap()
-}
+// async fn index() -> impl Responder {
+//     NamedFile::open_async("./static/index.html").await.unwrap()
+// }
 
-/// Displays state
-async fn get_count(count: web::Data<AtomicUsize>) -> impl Responder {
-    let current_count = count.load(Ordering::SeqCst);
-    format!("Visitors: {current_count}")
-}
+// /// Displays state
+// async fn get_count(count: web::Data<AtomicUsize>) -> impl Responder {
+//     let current_count = count.load(Ordering::SeqCst);
+//     format!("Visitors: {current_count}")
+// }

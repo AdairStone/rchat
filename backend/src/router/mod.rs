@@ -1,7 +1,7 @@
 use std::sync::{atomic::AtomicUsize, Arc};
 
 use crate::{
-    controller::{auth, file, stats, user},
+    controller::{auth, chat_ctl, file, stats, user},
     middleware,
     model::Tag, wsserver::{self, server::{self, ChatServer}},
 };
@@ -13,6 +13,8 @@ use zino_model::User;
 lazy_static! {
     static ref APP_STATE: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
     static ref SERVER: Addr<ChatServer> = server::ChatServer::new(APP_STATE.clone()).start();
+    static ref CURRENT_VISITORS: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
+
 }
 
 pub fn main_routes() -> Vec<RouterConfigure> {
@@ -20,6 +22,7 @@ pub fn main_routes() -> Vec<RouterConfigure> {
         auth_router as RouterConfigure,
         ws_router as RouterConfigure,
         file_router as RouterConfigure,
+        chat_router as RouterConfigure,
     ]
 }
 
@@ -49,11 +52,13 @@ fn ws_router(cfg: &mut ServiceConfig) {
             .route("/chat", web::get().to(wsserver::chat_route))
             // .wrap(middleware::UserSessionInitializer)
             .app_data(web::Data::from(APP_STATE.clone()))
+            // .app_data(web::Data::from(CURRENT_VISITORS))
             .app_data(web::Data::new(SERVER.clone()))
             ,
     );
     cfg.route("/clientchat", web::get().to(wsserver::chat_route))
     .app_data(web::Data::from(APP_STATE.clone()))
+    // .app_data(web::Data::from(CURRENT_VISITORS))
     .app_data(web::Data::new(SERVER.clone()));
 }
 
@@ -99,4 +104,20 @@ fn tag_debug_router(cfg: &mut ServiceConfig) {
     cfg.route("/tag/schema", get().to(Tag::schema))
         .route("/tag/definition", get().to(Tag::definition))
         .route("/tag/mock", get().to(Tag::mock));
+}
+
+
+fn chat_router(cfg: &mut ServiceConfig){
+    cfg.service(
+        scope("/service")
+            .route("/config-site", post().to(chat_ctl::admin_config_website))
+            .route("/list-rooms", get().to(chat_ctl::list_rooms))
+            .route("/list-chatmessage", get().to(chat_ctl::list_chatmessage))
+            .wrap(middleware::UserSessionInitializer),
+    );
+    cfg.service(
+        scope("/load")
+            .route("/load.js", get().to(chat_ctl::load_site_js))
+            ,
+    );
 }

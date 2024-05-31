@@ -124,13 +124,10 @@ impl Handler<Connect> for ChatServer {
         // register session with random id
         let id = self.rng.gen::<usize>();
         self.sessions.insert(id, msg.addr);
-
         // auto join session to main room
         self.rooms.entry("main".to_owned()).or_default().insert(id);
-
         let count = self.visitor_count.fetch_add(1, Ordering::SeqCst);
         self.send_message("main", &format!("Total visitors {count}"), 0);
-
         // send id back
         id
     }

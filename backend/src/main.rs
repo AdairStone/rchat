@@ -11,6 +11,7 @@ mod router;
 mod schedule;
 mod service;
 mod wsserver;
+mod utils;
 
 use zino::prelude::*;
 use zino_core::application::ServerTag;
