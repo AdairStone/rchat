@@ -2,6 +2,9 @@ use std::time::{Duration, Instant};
 
 use actix::prelude::*;
 use actix_web_actors::ws;
+use zino_model::User;
+
+use crate::model::ChatRoom;
 
 use super::server;
 
@@ -12,15 +15,21 @@ const CLIENT_TIMEOUT: Duration = Duration::from_secs(20);
 
 #[derive(Debug)]
 pub struct WsChatSession {
+    pub site_key: String,
     /// unique session id
     pub id: usize,
     /// Client must send ping at least once per 10 seconds (CLIENT_TIMEOUT),
     /// otherwise we drop connection.
     pub hb: Instant,
     /// joined room
+    pub room_obj: ChatRoom,
+
     pub room: String,
+    // 当前用户
+    pub user: Option<User>,
     /// peer name
     pub name: Option<String>,
+    pub user_type: usize, // 1 -client 0-customer service
     /// Chat server
     pub addr: Addr<server::ChatServer>,
 }
@@ -64,6 +73,7 @@ impl Actor for WsChatSession {
         self.addr
             .send(server::Connect {
                 addr: addr.recipient(),
+                room: self.room.clone(),
             })
             .into_actor(self)
             .then(|res, act, ctx| {
@@ -80,6 +90,7 @@ impl Actor for WsChatSession {
     fn stopping(&mut self, _: &mut Self::Context) -> Running {
         // notify chat server
         self.addr.do_send(server::Disconnect { id: self.id });
+        // todo!(); // 更新房间状态 leave
         Running::Stop
     }
 }
@@ -103,7 +114,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
             Ok(msg) => msg,
         };
 
-        // tracing::debug!("WEBSOCKET MESSAGE: {msg:?}");
+        // tracing::info!("WEBSOCKET MESSAGE: {msg:?}");
         match msg {
             ws::Message::Ping(msg) => {
                 self.hb = Instant::now();

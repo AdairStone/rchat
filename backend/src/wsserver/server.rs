@@ -22,6 +22,7 @@ pub struct Message(pub String);
 #[derive(Message)]
 #[rtype(usize)]
 pub struct Connect {
+    pub room: String,
     pub addr: Recipient<Message>,
 }
 
@@ -115,19 +116,19 @@ impl Actor for ChatServer {
 impl Handler<Connect> for ChatServer {
     type Result = usize;
 
-    fn handle(&mut self, msg: Connect, _: &mut Context<Self>) -> Self::Result {
+    fn handle(&mut self, msg: Connect, _: &mut Context<Self>) -> Self::Result {// 连接开启一个房间 条件：获取site_key
         tracing::info!("Someone joined");
-
         // notify all users in same room
-        self.send_message("main", "Someone joined", 0);
-
+        // msg.addr.
+        let room: &String = &msg.room;
+        self.send_message(room, "Someone joined", 0);
         // register session with random id
         let id = self.rng.gen::<usize>();
         self.sessions.insert(id, msg.addr);
         // auto join session to main room
-        self.rooms.entry("main".to_owned()).or_default().insert(id);
+        self.rooms.entry(room.to_owned()).or_default().insert(id);
         let count = self.visitor_count.fetch_add(1, Ordering::SeqCst);
-        self.send_message("main", &format!("Total visitors {count}"), 0);
+        self.send_message(room, &format!("Total visitors {count}"), 0);
         // send id back
         id
     }
@@ -138,9 +139,7 @@ impl Handler<Disconnect> for ChatServer {
     type Result = ();
     fn handle(&mut self, msg: Disconnect, _: &mut Context<Self>) {
         tracing::info!("Someone disconnected");
-
         let mut rooms: Vec<String> = Vec::new();
-
         // remove address
         if self.sessions.remove(&msg.id).is_some() {
             // remove session from all rooms

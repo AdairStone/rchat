@@ -50,10 +50,10 @@ fn ws_router(cfg: &mut ServiceConfig) {
     cfg.service(
         scope("/ws")
             .route("/chat", web::get().to(wsserver::chat_route))
-            // .wrap(middleware::UserSessionInitializer)
             .app_data(web::Data::from(APP_STATE.clone()))
             // .app_data(web::Data::from(CURRENT_VISITORS))
             .app_data(web::Data::new(SERVER.clone()))
+            .wrap(middleware::UserSessionInitializer)
             ,
     );
     cfg.route("/clientchat", web::get().to(wsserver::chat_route))

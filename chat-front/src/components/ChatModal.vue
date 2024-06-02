@@ -81,7 +81,7 @@ export default defineComponent({
             const port = window.location.port;
 
             // const url = 'wss://your-websocket-url';
-            const url = 'ws://127.0.0.1:6080/clientchat';
+            const url = 'ws://127.0.0.1:6080/clientchat?site_key=DBlDpVRp2ejdBxl&client=1';
             // 替换为你的WebSocket服务器URL
             ws.value = new WebSocket(url);
 

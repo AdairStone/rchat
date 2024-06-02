@@ -123,7 +123,7 @@
         const { location } = window
 
         const proto = location.protocol.startsWith('https') ? 'wss' : 'ws'
-        const wsUri = `${proto}://${location.host}/ws/chat`
+        const wsUri = `${proto}://${location.host}/ws/chat?site_key=DBlDpVRp2ejdBxl&client=0&room_key=XGg5u20b1fx8D58&access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3MTczMjUxODMsImV4cCI6MTcxNzMyNjM4Mywic3ViIjoiMDE4ZjdhMDktNGRlMS03ODIyLWFlYWMtNTQyZTllYTA4ZDYyIiwicm9sZXMiOlsiYWRtaW4iXX0.JjCLAeDcczq8ZMxNF_w9IhxNSE5dDTb0J8_G4Ct6ygw`
 
         log('Connecting...')
         socket = new WebSocket(wsUri)

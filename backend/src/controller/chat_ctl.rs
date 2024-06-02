@@ -1,7 +1,7 @@
-
-use actix_files::NamedFile;
+use actix_web::{HttpResponse, Responder};
+use tera::{Context, Tera};
 use zino::{Request, Response, Result};
-use zino_core::{auth::UserSession, json, model::Query, orm::Schema, response::{ExtractRejection, Rejection, StatusCode}, validation::{self, UuidValidator, Validation, Validator}, warn, Map, Uuid};
+use zino_core::{auth::UserSession, extension::JsonObjectExt, json, model::Query, orm::Schema, response::{ExtractRejection, Rejection, StatusCode}, validation::{self, UuidValidator, Validation, Validator}, warn, Map, Uuid};
 use zino::prelude::Error;
 use zino::prelude::RequestContext;
 
@@ -40,17 +40,30 @@ pub async fn admin_config_website(mut req: Request) -> Result {
 }
 
 
-pub async fn load_site_js(req: Request) -> Result<NamedFile> {
+pub async fn load_site_js(req: Request) -> Result<HttpResponse> {
     if let Some(key) = req.get_query("key") {
         match ChatService::load_site(&key.to_string()).await {
             Ok(res) => {
                 if res {
-                    match NamedFile::open_async("./static/load.js").await {
-                        Ok(file) => return Ok(file),
+                    let query: Query = Query::new(Map::from_entry("site_key", key));
+                    match ChatWebsite::find_one::<ChatWebsite>(&query).await {
+                        Ok(site) => {
+                            if site.is_some() {
+                                let tera: Tera = Tera::new("static/**/*").unwrap();
+                                let mut context = Context::new();
+                                context.insert("script_home", "http://chat.local.com/");//replcace from config
+                                let rendered = tera.render("load.js", &context).unwrap();
+                                let r = HttpResponse::Ok()
+                                .content_type("application/javascript").body(rendered);
+                                return Ok(r);
+                            } else {
+                                return Err(Rejection::internal_server_error(warn!("site not found")).into());            
+                            }
+                        },
                         Err(e) => return Err(Rejection::internal_server_error(e).into()),
                     }
                 } else {
-                    return Err(Rejection::internal_server_error(warn!("inactive")).into());            
+                    return Err(Rejection::internal_server_error(warn!("site inactive")).into());            
                 }
             },
             Err(e) => {
@@ -61,7 +74,6 @@ pub async fn load_site_js(req: Request) -> Result<NamedFile> {
         return Err(Rejection::internal_server_error(warn!("need key")).into());
     }
 }
-
 
 pub async fn list_rooms(req: Request) -> Result {
     let user_session = req
@@ -102,7 +114,6 @@ pub async fn list_rooms(req: Request) -> Result {
             res.set_error_message(e);
         }
     }
-
     Ok(res.clone().into())
 }
 
@@ -164,7 +175,6 @@ pub async fn list_chatmessage(req: Request) -> Result {
             res.set_error_message(e);
         }
     }
-
     Ok(res.clone().into())
 }
 

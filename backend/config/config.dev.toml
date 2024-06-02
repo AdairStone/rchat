@@ -50,3 +50,6 @@ refresh-interval = "7d"
 
 [openapi]
 custom-html = "local/docs/rapidoc.html"
+
+[site]
+base-url = "http://chat.local.com/"

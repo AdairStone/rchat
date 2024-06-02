@@ -17,9 +17,9 @@ use zino::prelude::*;
 use zino_core::application::ServerTag;
 
 fn main() {
-    zino::Cluster::boot()
+    let app = zino::Cluster::boot()
         .register_debug(router::debug_routes())
         .register_with(ServerTag::Main, router::main_routes())
-        .spawn(schedule::job_scheduler())
-        .run_with(schedule::async_job_scheduler());
+        .spawn(schedule::job_scheduler());    
+    app.run_with(schedule::async_job_scheduler());
 }
