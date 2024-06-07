@@ -30,7 +30,7 @@ export const TokenKey = "authorized-token";
 export const multipleTabsKey = "multiple-tabs";
 
 /** 获取`token` */
-export function getToken(): DataInfo<number> {
+export function getToken(): DataInfo<string> {
   // 此处与`TokenKey`相同，此写法解决初始化时`Cookies`中不存在`TokenKey`报错
   return Cookies.get(TokenKey)
     ? JSON.parse(Cookies.get(TokenKey))

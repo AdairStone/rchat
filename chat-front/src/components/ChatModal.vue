@@ -25,8 +25,8 @@
 
 <script lang="ts">
 import { defineComponent, ref, nextTick, watch, onMounted } from 'vue';
-// import '@joeattardi/emoji-picker-element';
-// 
+import Cookies from 'js-cookie';
+
 export default defineComponent({
     name: 'ChatModal',
     props: {
@@ -61,47 +61,33 @@ export default defineComponent({
         onMounted(() => {
             connect();
             nextTick(() => {
-                console.log("real exe");
                 focusInput();
             });
         });
 
         // 引用WebSocket对象
         const ws = ref<WebSocket | null>(null);
-
         // 连接WebSocket服务器
         const connect = () => {
-            var protocol = window.location.protocol;
-            if (protocol == 'https:') {
-                protocol = 'wss';
-            } else {
-                protocol = 'ws'
-            }
-            const hostname = window.location.hostname;
-            const port = window.location.port;
-
-            // const url = 'wss://your-websocket-url';
-            const url = 'ws://127.0.0.1:6080/clientchat?site_key=DBlDpVRp2ejdBxl&client=1';
-            // 替换为你的WebSocket服务器URL
+            const ukey = Cookies.get('bibirchat_ukey') ?? '0QsXuCkekVFG2cP';// for test
+            const skey = Cookies.get('bibirchat_site_key') ?? 'pbAuq7PVr2gh2jp'; // for test
+            const sserver = Cookies.get('bibirchat_sserver') ?? 'http://chat.local.com'; // for test
+            console.log('uskey', ukey, skey);
+            const url = sserver + '/clientchat?site_key=' + skey + '&room_key=' + ukey + '&client=1';
             ws.value = new WebSocket(url);
-
-            // 监听WebSocket打开事件
             ws.value.onopen = () => {
                 console.log('WebSocket 连接成功');
             };
-
             // 监听WebSocket消息事件
             ws.value.onmessage = (event) => {
                 console.log('收到消息:', event.data);
                 messages.value.push({ text: event.data, time: new Date().toLocaleString(), user: false });
                 scrollToBottom();
             };
-
             // 监听WebSocket错误事件
             ws.value.onerror = (error) => {
                 console.error('WebSocket 连接出错:', error);
             };
-
             // 监听WebSocket关闭事件
             ws.value.onclose = () => {
                 console.log('WebSocket 连接已关闭');
@@ -111,7 +97,10 @@ export default defineComponent({
         const sendMessage = () => {
             if (newMessage.value.trim()) {
                 if (ws.value) {
-                    ws.value.send(newMessage.value);
+                    const to_server = {
+                        content: newMessage.value.trim()
+                    };
+                    ws.value.send(JSON.stringify(to_server));
                 }
                 messages.value.push({
                     text: newMessage.value,
@@ -126,7 +115,6 @@ export default defineComponent({
         };
 
         const handleKeydown = (event: KeyboardEvent) => {
-            console.log('key down')
             if (event.key === 'Escape') {
                 closeModal();
             }

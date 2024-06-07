@@ -46,6 +46,7 @@ port = 9090
 
 [jwt]
 max-age = "20m"
+time-tolerance = "20m"
 refresh-interval = "7d"
 
 [openapi]

@@ -5,12 +5,7 @@ use crate::{
 };
 use aop_macro::transactional;
 use zino_core::{
-    datetime::DateTime,
-    error::Error,
-    extension::JsonObjectExt,
-    model::Query,
-    orm::{GlobalPool, ModelAccessor, Schema},
-    warn, Map, Uuid,
+    datetime::{Date, DateTime}, error::Error, extension::JsonObjectExt, model::Query, orm::{GlobalPool, ModelAccessor, Schema}, warn, JsonValue, Map, Uuid
 };
 
 pub struct ChatService;
@@ -31,7 +26,8 @@ impl ChatService {
             "user_id",
             website_config.user_id.to_string(),
         ));
-        if let Some(chat_website) = ChatWebsite::find_one::<ChatWebsite>(&query).await? {
+        if let Some(mut chat_website) = ChatWebsite::find_one::<ChatWebsite>(&query).await? {
+            chat_website.script_home = "http://chat.local.com".to_owned();
             return Ok(Some(chat_website));
         } else {
             let mut chat_website = ChatWebsite::default();
@@ -41,9 +37,29 @@ impl ChatService {
             chat_website.welcome_slogan = website_config.welcome_slogan.clone();
             chat_website.position = website_config.position.clone();
             chat_website.user_id = website_config.user_id;
+            chat_website.script_home = "http://chat.local.com".to_owned();
             let result = chat_website.clone();
             chat_website.insert().await?;
             return Ok(Some(result));
+        }
+    }
+    // 1.1
+    pub async fn save_site(website_config: &WebsiteConfig) -> Result<Option<ChatWebsite>, Error> {
+        let mut query: Query = Query::new(Map::from_entry(
+            "user_id",
+            website_config.user_id.to_string(),
+        ));
+        query.add_filter("id", website_config.id.clone().unwrap().to_string());
+        if let Some(mut chat_website) = ChatWebsite::find_one::<ChatWebsite>(&query).await? {
+            chat_website.title = website_config.title.clone();
+            chat_website.welcome_slogan = website_config.welcome_slogan.clone();
+            chat_website.position = website_config.position.clone();
+            chat_website.update_at = DateTime::now();
+            chat_website.clone().update().await?;
+            chat_website.script_home = "http://chat.local.com".to_owned();
+            return Ok(Some(chat_website));
+        } else {
+            return Err(warn!("error save website config"));
         }
     }
 
@@ -91,7 +107,7 @@ impl ChatService {
             Self::gen_room_key().await?
         };
         let mut query: Query = Query::new(Map::from_entry("room_key", rkey.clone()));
-        
+
         let mut site_query: Query = Query::new(Map::from_entry("site_key", site_key.clone()));
         site_query.add_filter("status", "confirmed");
         if let Some(chat_website) = ChatWebsite::find_one::<ChatWebsite>(&site_query).await? {
@@ -121,7 +137,7 @@ impl ChatService {
         }
     }
 
-    async fn gen_room_key() -> Result<String, Error> {
+    pub async fn gen_room_key() -> Result<String, Error> {
         // retry three times
         let key_size = 15;
         let mut i = 0;
@@ -156,12 +172,23 @@ impl ChatService {
         site_id: &Uuid,
         page: usize,
         page_num: usize,
-    ) -> Result<Vec<ChatRoom>, Error> {
+    ) -> Result<Map, Error> {
         let mut query: Query = Query::new(Map::from_entry("room_site_id", site_id.to_string()));
+        let count_query = query.clone();
+
         query.order_by("create_at", true);
         query.set_limit(page_num);
         query.set_offset((page - 1) * page_num);
-        Ok(ChatRoom::find(&query).await?)
+        let total = ChatRoom::count(&count_query).await?;
+        let data = ChatRoom::find::<ChatRoom>(&query).await?;
+        let mut res  = Map::new();
+        
+        let md = data.iter().map(|r| -> JsonValue {
+            serde_json::to_value(r).unwrap()
+        }).collect::<Vec<JsonValue>>();
+        res.append(&mut Map::from_entry("data", md));
+        res.append(&mut Map::from_entry("total", total));
+        Ok(res)
     }
 
     // 3.1 （客服人员） 加入房间，消息变成已读。

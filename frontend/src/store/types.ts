@@ -44,3 +44,9 @@ export type userType = {
   isRemembered?: boolean;
   loginDay?: number;
 };
+
+
+export type chatSiteType = {
+  site_id?: string;
+  site_key?: string;
+}

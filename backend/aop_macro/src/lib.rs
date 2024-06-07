@@ -24,8 +24,6 @@ pub fn transactional(_args: TokenStream, item: TokenStream) -> TokenStream {
                     return Err(err.into());
                 }
             };
-            // println!("{}", #fn_block);
-            // Call the original function and capture the result
             let block = (async move #fn_block);
 
             let result = block.await;
@@ -42,12 +40,8 @@ pub fn transactional(_args: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
             tracing::info!("Ending transaction...");
-            // Return the original function's result
             result
         }
     };
-
     gen.into()
-
-    // gen.into()
 }

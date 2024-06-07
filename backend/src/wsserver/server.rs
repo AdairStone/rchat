@@ -10,6 +10,9 @@ use std::{
 };
 use actix::prelude::*;
 use rand::{rngs::ThreadRng, Rng};
+use zino_core::orm::Schema;
+
+use crate::model::ChatMessage;
 
 /// Chat server sends this messages to session
 #[derive(Message)]
@@ -43,6 +46,8 @@ pub struct ClientMessage {
     pub msg: String,
     /// Room name
     pub room: String,
+    /// 具体消息
+    pub mess: ChatMessage,
 }
 
 /// List of available rooms
@@ -160,7 +165,20 @@ impl Handler<Disconnect> for ChatServer {
 impl Handler<ClientMessage> for ChatServer {
     type Result = ();
 
-    fn handle(&mut self, msg: ClientMessage, _: &mut Context<Self>) {
+    fn handle(&mut self, msg: ClientMessage, context: &mut Context<Self>) {
+        // 发送前保存
+        let fut = async {
+            let result = msg.mess.insert().await;
+            result
+        }
+        .into_actor(self)
+        .map(|result, _act, _ctx| {
+            match result {
+                Ok(_r) => {()},
+                Err(e) => { tracing::warn!("message save error: {:?}", e); },
+            }
+        });
+        context.spawn(fut);
         self.send_message(&msg.room, msg.msg.as_str(), msg.id);
     }
 }

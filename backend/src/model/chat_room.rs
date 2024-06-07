@@ -17,10 +17,11 @@ use super::ChatWebsite;
     Model,
 )]
 #[serde(default)]
+#[schema(unique_on="room_key")]
 pub struct ChatRoom {
     #[schema(primary_key, read_only, constructor = "Uuid::now_v7")]
     pub id: Uuid,
-    #[schema(not_null, uniq, comment = "uniq key for users to join")]
+    #[schema(not_null, unique, comment = "uniq key for users to join")]
     pub room_key: String,
     #[schema(default_value = "active", index_type = "hash")] // active disconnect
     pub status: String,

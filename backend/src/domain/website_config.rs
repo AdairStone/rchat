@@ -9,6 +9,7 @@ use zino_core::Uuid;
     Deserialize,
 )]
 pub struct WebsiteConfig {
+    pub id: Option<String>,
     pub title: Option<String>,
     pub welcome_slogan: Option<String>,
     pub site_key: Option<String>,

@@ -37,11 +37,12 @@ const { t } = useI18n();
 const { dataTheme, overallStyle, dataThemeChange } = useDataThemeChange();
 dataThemeChange(overallStyle.value);
 const { title, getDropdownItemStyle, getDropdownItemClass } = useNav();
-const { locale, translationCh, translationEn, translationVn } = useTranslationLang();
+const { locale, translationCh, translationEn, translationVn } =
+  useTranslationLang();
 
 const ruleForm = reactive({
-  username: "admin",
-  password: "admin123"
+  username: "",
+  password: ""
 });
 
 const onLogin = async (formEl: FormInstance | undefined) => {
@@ -50,7 +51,10 @@ const onLogin = async (formEl: FormInstance | undefined) => {
     if (valid) {
       loading.value = true;
       useUserStoreHook()
-        .loginByUsername({ username: ruleForm.username, password: "admin123" })
+        .loginByUsername({
+          account: ruleForm.username,
+          password: ruleForm.password
+        })
         .then(res => {
           if (res.success) {
             // 获取后端路由
@@ -62,6 +66,12 @@ const onLogin = async (formEl: FormInstance | undefined) => {
           } else {
             message(t("login.pureLoginFail"), { type: "error" });
           }
+        })
+        .catch(e => {
+          console.log(e);
+          message(t("login.pureLoginFail") + ":" + e.response.data.detail, {
+            type: "error"
+          });
         })
         .finally(() => (loading.value = false));
     }

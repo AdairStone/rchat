@@ -38,8 +38,8 @@ pub struct ChatMessage {
         fetch_as = "reply_to_message",
         comment = "message replied to"
     )]
-    pub reply_to_id: Option<Uuid>,
     pub content: String,
+    pub reply_to_id: Option<Uuid>,
     #[schema(
         max_items = 5,
         reference = "ChatMedia",
@@ -50,7 +50,8 @@ pub struct ChatMessage {
         snapshot,
         reference = "ChatRoom",
         fetch_as = "room",
-        comment = "message replied to"
+        comment = "room id",
+        index_type = "btree"
     )]
     pub room_id: Uuid,
     #[schema(read_only, default_value = "now", index_type = "btree")]
@@ -58,4 +59,5 @@ pub struct ChatMessage {
     #[schema(default_value = "now", index_type = "btree")]
     pub update_at: DateTime,
     pub version: u64,
+
 }

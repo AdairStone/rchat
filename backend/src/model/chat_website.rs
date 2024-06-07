@@ -16,10 +16,11 @@ use zino_model::User;
     Model,
 )]
 #[serde(default)]
+#[schema(unique_on="site_key")]
 pub struct ChatWebsite {
     #[schema(primary_key, read_only, constructor = "Uuid::now_v7")]
     pub id: Uuid,
-    #[schema(not_null, uniq, comment = "uniq string for frontend")]
+    #[schema(not_null, unique, comment = "uniq string for frontend")]
     pub site_key: String,
     #[schema(default_value = "inited", index_type = "hash")] // inited confirmed
     pub status: String,
@@ -39,4 +40,6 @@ pub struct ChatWebsite {
     #[schema(default_value = "now", index_type = "btree")]
     pub update_at: DateTime,
     pub version: u64,
+    #[schema(ignore)]
+    pub script_home: String,
 }

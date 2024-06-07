@@ -1,38 +1,25 @@
 use std::time::{Duration, Instant};
 
 use actix::prelude::*;
-use actix_web::http::header::Date;
 use actix_web_actors::ws;
-use tokio::join;
-use zino_core::{datetime::DateTime, orm::Schema, Uuid};
-use zino_model::User;
 
-use crate::{model::{ChatMessage, ChatRoom}, service::chat_service::ChatService};
-
-use super::server;
-
+use crate::server;
 /// How often heartbeat pings are sent
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 /// How long before lack of client response causes a timeout
-const CLIENT_TIMEOUT: Duration = Duration::from_secs(20);
+const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug)]
 pub struct WsChatSession {
-    pub site_key: String,
     /// unique session id
     pub id: usize,
     /// Client must send ping at least once per 10 seconds (CLIENT_TIMEOUT),
     /// otherwise we drop connection.
     pub hb: Instant,
     /// joined room
-    pub room_obj: ChatRoom,
-
     pub room: String,
-    // 当前用户
-    pub user: Option<User>,
     /// peer name
     pub name: Option<String>,
-    pub user_type: usize, // 1 -client 0-customer service
     /// Chat server
     pub addr: Addr<server::ChatServer>,
 }
@@ -46,10 +33,9 @@ impl WsChatSession {
             // check client heartbeats
             if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
                 // heartbeat timed out
-                tracing::info!("Websocket Client heartbeat failed, disconnecting!");
+                println!("Websocket Client heartbeat failed, disconnecting!");
                 // notify chat server
                 act.addr.do_send(server::Disconnect { id: act.id });
-                
                 // stop actor
                 ctx.stop();
                 // don't try to send a ping
@@ -76,7 +62,6 @@ impl Actor for WsChatSession {
         self.addr
             .send(server::Connect {
                 addr: addr.recipient(),
-                room: self.room.clone(),
             })
             .into_actor(self)
             .then(|res, act, ctx| {
@@ -93,7 +78,6 @@ impl Actor for WsChatSession {
     fn stopping(&mut self, _: &mut Self::Context) -> Running {
         // notify chat server
         self.addr.do_send(server::Disconnect { id: self.id });
-        // todo!(); // 更新房间状态 leave
         Running::Stop
     }
 }
@@ -110,15 +94,13 @@ impl Handler<server::Message> for WsChatSession {
 impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         let msg = match msg {
-            Err(e) => {
-                tracing::warn!("ws stoped for: {}", e);
+            Err(_) => {
                 ctx.stop();
                 return;
             }
             Ok(msg) => msg,
         };
-
-        // tracing::info!("WEBSOCKET MESSAGE: {msg:?}");
+        log::debug!("WEBSOCKET MESSAGE: {msg:?}");
         match msg {
             ws::Message::Ping(msg) => {
                 self.hb = Instant::now();
@@ -178,31 +160,17 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                         _ => ctx.text(format!("!!! unknown command: {m:?}")),
                     }
                 } else {
-                    let mesage = match serde_json::from_str::<ChatMessage>(m) {
-                        Ok(im) => Some(im),
-                        Err(ie) => { ctx.text(format!("error! {}", ie)); None } ,
+                    let msg = if let Some(ref name) = self.name {
+                        format!("{name}: {m}")
+                    } else {
+                        m.to_owned()
                     };
-                    if let Some(mut mess) = mesage {
-                        // send message to chat server
-                        mess.id = Uuid::now_v7();
-                        mess.name = if self.name.is_some() {self.name.clone().unwrap()} else { "".to_owned() };
-                        mess.room_id = self.room_obj.id;
-                        // mess.avatar
-                        mess.create_at = DateTime::now();
-                        mess.update_at = DateTime::now();
-                        mess.status = "sended".to_string();
-                        mess.user_id = match &self.user {
-                            Some(u) => Some(u.user_session().user_id().clone()),
-                            None => None,
-                        };
-
-                        self.addr.do_send(server::ClientMessage {
-                            id: self.id,
-                            msg: mess.content.clone(),
-                            room: self.room.clone(),
-                            mess
-                        });
-                    }
+                    // send message to chat server
+                    self.addr.do_send(server::ClientMessage {
+                        id: self.id,
+                        msg,
+                        room: self.room.clone(),
+                    })
                 }
             }
             ws::Message::Binary(_) => println!("Unexpected binary"),
@@ -217,4 +185,3 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
         }
     }
 }
-

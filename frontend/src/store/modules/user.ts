@@ -60,9 +60,26 @@ export const useUserStore = defineStore({
     /** 登入 */
     async loginByUsername(data) {
       return new Promise<UserResult>((resolve, reject) => {
+        // console.log('test: ',data);
         getLogin(data)
           .then(data => {
-            if (data?.success) setToken(data.data);
+            if (data?.success) { 
+              const info = {
+                avatar: '',
+                username: data.data.entry.name,
+                /** 昵称 */
+                nickname: data.data.entry.name,
+                /** 当前登录用户的角色 */
+                roles: data.data.entry.roles,
+                /** `token` */
+                accessToken: data.data.access_token,
+                /** 用于调用刷新`accessToken`的接口时所需的`token` */
+                refreshToken: data.data.refresh_token,
+                /** `accessToken`的过期时间（格式'xxxx/xx/xx xx:xx:xx'） */
+                expires: new Date(new Date().getTime() + data.data.expires_in * 1000)
+              };
+              setToken(info);
+            };
             resolve(data);
           })
           .catch(error => {
@@ -83,10 +100,15 @@ export const useUserStore = defineStore({
     async handRefreshToken(data) {
       return new Promise<RefreshTokenResult>((resolve, reject) => {
         refreshTokenApi(data)
-          .then(data => {
-            if (data) {
-              setToken(data.data);
-              resolve(data);
+          .then(res => {
+            if (res) {
+              const info = {
+                accessToken: res.data.access_token,
+                refreshToken: data.refreshToken,
+                expires: new Date(new Date().getTime() + res.data.expires_in * 1000)
+              };
+              setToken(info);
+              resolve(res);
             }
           })
           .catch(error => {

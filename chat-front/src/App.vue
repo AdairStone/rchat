@@ -39,7 +39,6 @@ export default defineComponent({
       openModal,
       closeModal,
       floatingButton,
-      // startDrag,
     };
   },
 });

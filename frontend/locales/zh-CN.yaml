@@ -59,7 +59,7 @@ panel:
   pureHiddenFooter: 隐藏页脚
   pureMultiTagsCache: 页签持久化
 menus:
-  pureHome: 首页
+  pureHome: 网站配置
   pureLogin: 登录
   pureAbnormal: 异常页面
   pureFourZeroFour: "404"
@@ -68,6 +68,8 @@ menus:
   purePermission: 权限管理
   purePermissionPage: 页面权限
   purePermissionButton: 按钮权限
+  chatList: 聊天窗口
+  chatSummary: 客服数据
 status:
   pureLoad: 加载中...
   pureMessage: 消息
@@ -85,3 +87,5 @@ login:
   pureUsernameReg: 请输入账号
   purePassWordReg: 请输入密码
   purePassWordRuleReg: 密码格式应为8-18位数字、字母、符号的任意两种组合
+messages:
+  chatSiteRoomListError: 获取房间列表出错

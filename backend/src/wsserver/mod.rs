@@ -25,17 +25,22 @@ pub async fn chat_route(
     let client = if query_params.get("client").is_some() {  query_params.get("client").unwrap() } else { return Err(error::ErrorBadRequest("client must provied"));};
     let mut user: Option<User> = None;
     let mut name: Option<String> = None;
-    let mut room_key = None;
+    let mut room_key = query_params.get("room_key").map(|el| el.clone());
     let mut room = ChatRoom::default();
     let mut user_type = 0 as usize;
+    tracing::info!("join chat with:{}", client);
     if client == "0" {// 服务端加入
         // req.hea
+        tracing::info!("from server user...");
         let new_req = Request::from(req.clone());
         match new_req.parse_jwt_claims(JwtClaims::shared_key()) {
             Ok(claims) => {
                 if let Ok(user_session) = UserSession::<Uuid>::try_from_jwt_claims(claims) {
                     match User::find_by_id::<User>(user_session.user_id()).await {
-                        Ok(us) => user = us,
+                        Ok(us) => {
+                            tracing::info!("asigin user...");
+                            user = us
+                        },
                         Err(e) => return Err(error::ErrorForbidden(e)),
                     };
                 } else {
@@ -47,7 +52,7 @@ pub async fn chat_route(
                 return Err(error::ErrorBadRequest("token session invalid"));
             }
         }
-        room_key = Some((if query_params.get("room_key").is_some() {  query_params.get("room_key").unwrap() } else { return Err(error::ErrorBadRequest("room_key must provied"));}).to_string());
+        if room_key.is_none() { return Err(error::ErrorBadRequest("room_key must provied")); }
         room = match ChatRoom::find_one::<ChatRoom>(&Query::from_entry("room_key", room_key.clone().unwrap().to_string())).await {
             Ok(ro) => if ro.is_some() { ro.unwrap() } else { return Err(error::ErrorBadRequest("token session invalid")); },
             Err(e) =>  return Err(error::ErrorBadRequest(e)) ,
@@ -63,7 +68,7 @@ pub async fn chat_route(
         };
         user_type = 1;
     }
-    tracing::info!("join room: {:?}", &room);
+    tracing::info!("join room: {:?} user：{:?} ", &room, &user);
     // todo 收集一些远端信息 ip domian client agent
     ws::start(
         session::WsChatSession {

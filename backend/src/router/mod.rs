@@ -111,6 +111,7 @@ fn chat_router(cfg: &mut ServiceConfig){
     cfg.service(
         scope("/service")
             .route("/config-site", post().to(chat_ctl::admin_config_website))
+            .route("/save-site", post().to(chat_ctl::save_site_config))
             .route("/list-rooms", get().to(chat_ctl::list_rooms))
             .route("/list-chatmessage", get().to(chat_ctl::list_chatmessage))
             .wrap(middleware::UserSessionInitializer),
@@ -118,6 +119,7 @@ fn chat_router(cfg: &mut ServiceConfig){
     cfg.service(
         scope("/load")
             .route("/load.js", get().to(chat_ctl::load_site_js))
+            .route("/messages", get().to(chat_ctl::list_chatmessage_from_chat))
             ,
     );
 }
