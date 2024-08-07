@@ -14,11 +14,19 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "chat-front": "file:",
+    "emoji-mart-vue-fast": "^15.0.2",
     "emoji-picker-element": "^1.21.3",
+    "emoji-regex": "^10.3.0",
+    "filepond": "^4.31.1",
+    "filepond-plugin-file-validate-type": "^1.2.9",
+    "filepond-plugin-image-preview": "^4.6.12",
     "js-cookie": "^3.0.5",
     "pinia": "^2.1.7",
     "vue": "^3.4.21",
-    "vue-router": "^4.3.0"
+    "vue-filepond": "^7.0.4",
+    "vue-router": "^4.3.0",
+    "websocket": "^1.0.35"
   },
   "devDependencies": {
     "@babel/core": "^7.24.6",

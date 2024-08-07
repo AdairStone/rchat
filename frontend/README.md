@@ -41,3 +41,5 @@
 ## 许可证
 
 [MIT © 2020-present, pure-admin](./LICENSE)
+
+node环境：20.14.0

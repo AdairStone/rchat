@@ -1,7 +1,9 @@
 <template>
   <div id="app">
     <div v-if="!isChatOpen" class="floating-button" ref="floatingButton">
-      <button @click="openModal">💬</button>
+      <button @click="openModal">
+        <Icon icon="humbleicons:chat" width="40" height="40" style="color: #FFFFFF" />
+      </button>
     </div>
     <ChatModal :isOpen="isChatOpen" @close="closeModal" />
   </div>
@@ -10,11 +12,13 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import ChatModal from './components/ChatModal.vue';
+import { Icon } from '@iconify/vue';
 
 export default defineComponent({
   name: 'App',
   components: {
     ChatModal,
+    Icon
   },
   setup() {
     const isChatOpen = ref(false);

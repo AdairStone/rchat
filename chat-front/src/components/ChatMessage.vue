@@ -17,7 +17,6 @@ export default defineComponent({
         const messageStore = useMessageStore();
         const messages = messageStore.allMessages;
         let socket: WebSocket;
-
         const connectWebSocket = () => {
             socket = new WebSocket('wss://your-websocket-server-url');
 
