@@ -1,24 +1,31 @@
-use actix_web::{HttpResponse, Responder};
+use std::collections::HashMap;
+
+use actix_web::HttpResponse;
 use tera::{Context, Tera};
 use zino::prelude::Error;
 use zino::prelude::RequestContext;
 use zino::{Request, Response, Result};
 use zino_core::{
     auth::UserSession,
-    extension::{JsonObjectExt, JsonValueExt},
+    extension::JsonObjectExt,
     json,
     model::Query,
     orm::Schema,
     response::{ExtractRejection, Rejection, StatusCode},
-    validation::{self, UuidValidator, Validation, Validator},
+    validation::{UuidValidator, Validation, Validator},
     warn, Map, Uuid,
 };
 
+use crate::utils::date_utils::current_s;
+use crate::utils::str_from_map;
+use crate::utils::str_from_map_required;
+use crate::utils::str_to_usize;
+use crate::utils::usize_from_map_default;
 use crate::{
     domain::website_config::WebsiteConfig,
     model::{ChatRoom, ChatWebsite},
     service::chat_service::ChatService,
-    utils::{self, generate_random_string, str_from_map},
+    utils::{self},
 };
 
 pub async fn admin_config_website(mut req: Request) -> Result {
@@ -151,6 +158,7 @@ pub async fn list_rooms(req: Request) -> Result {
     tracing::info!("site_id:{}", site_id);
     let chat_site = match ChatWebsite::find_one::<ChatWebsite>(&query).await {
         Ok(site) => {
+            tracing::info!("chat website:{:?}", &site);
             if site.is_some() {
                 site.unwrap()
             } else {
@@ -190,23 +198,17 @@ pub async fn list_rooms(req: Request) -> Result {
     Ok(res.clone().into())
 }
 
-pub async fn list_chatmessage(req: Request) -> Result {
+pub async fn list_chatmessage(mut req: Request) -> Result {
+    let body = req.parse_body::<Map>().await?;
     let user_session = req
         .get_data::<UserSession<_>>()
         .ok_or_else(|| warn!("401 Unauthorized: the user session is invalid"))
         .extract(&req)?;
     let user_id: &Uuid = user_session.user_id();
     let mut query = Query::from_entry("user_id", user_id.to_string());
-    let site_id = if let Some(s_id) = req.get_query("site_id") {
-        if let Err(e) = UuidValidator.validate(s_id) {
-            return Err(Rejection::from_error(e).into());
-        }
-        s_id
-    } else {
-        let mut validation = Validation::new();
-        validation.record("site_id", "should provide site_id");
-        return Err(Rejection::bad_request(validation).into());
-    };
+   
+    let site_id = str_from_map_required("site_id", &body)?;
+
     query.add_filter("site_id", site_id);
 
     let chat_site = match ChatWebsite::find_one::<ChatWebsite>(&query).await {
@@ -219,16 +221,7 @@ pub async fn list_chatmessage(req: Request) -> Result {
         }
         Err(e) => return Err(Rejection::from_error(e).into()),
     };
-    let room_id = if let Some(ro_id) = req.get_query("room_id") {
-        if let Err(e) = UuidValidator.validate(ro_id) {
-            return Err(Rejection::from_error(e).into());
-        }
-        ro_id
-    } else {
-        let mut validation = Validation::new();
-        validation.record("room_id", "should provide room_id");
-        return Err(Rejection::bad_request(validation).into());
-    };
+    let room_id = str_from_map_required("room_id", &body)?;
     // let room_uuid = match uuid::Uuid::parse_str(room_id) {
     //     Ok(id) => id,
     //     Err(e) => return Err(Rejection::from_error(e).into()),
@@ -245,66 +238,34 @@ pub async fn list_chatmessage(req: Request) -> Result {
         }
         Err(e) => return Err(Rejection::from_error(e).into()),
     };
-    let page = if req.get_query("page").is_none() {
-        "1"
-    } else {
-        req.get_query("page").unwrap()
-    };
-    let page_size = if req.get_query("page_size").is_none() {
-        "10"
-    } else {
-        req.get_query("page_size").unwrap()
-    };
 
-    let res = &mut Response::default().context(&req);
-    match ChatService::list_messages(
-        &room,
-        utils::str_to_usize(page)?,
-        utils::str_to_usize(page_size)?,
-    )
-    .await
-    {
-        Ok(data) => {
-            res.set_json_data(json!(data));
-            res.set_code(StatusCode::OK);
-        }
-        Err(e) => {
-            res.set_code(StatusCode::INTERNAL_SERVER_ERROR);
-            res.set_error_message(e);
-        }
+    let page = usize_from_map_default("page", &body, 1)?;
+    let page_size = usize_from_map_default("page_size", &body, 10)?;
+    let date;
+    if page == 1 {
+        date = current_s() as usize;
+    } else {
+        date = str_to_usize(&str_from_map_required("ts", &body)?)?;
     }
+    let res = &mut Response::default().context(&req);
+    let data = ChatService::list_messages(&room, page, page_size, date)
+        .await
+        .extract(&req)?;
+    let mut res_map = HashMap::new();
+    res_map.insert("data", json!(data));
+    res_map.insert("ts", date.into());
+    res.set_json_data(json!(res_map));
+    res.set_code(StatusCode::OK);
     Ok(res.clone().into())
 }
 
 // rest for chat_front
-pub async fn list_chatmessage_from_chat(req: Request) -> Result {
-    // let user_session = req
-    //     .get_data::<UserSession<_>>()
-    //     .ok_or_else(|| warn!("401 Unauthorized: the user session is invalid"))
-    //     .extract(&req)?;
-    // let user_id: &Uuid = user_session.user_id();
-    // let mut query = Query::from_entry("user_id",user_id.to_string());
-    let site_key = if let Some(s_id) = req.get_query("site_key") {
-        if let Err(e) = UuidValidator.validate(s_id) {
-            return Err(Rejection::from_error(e).into());
-        }
-        s_id
-    } else {
-        let mut validation = Validation::new();
-        validation.record("site_key", "should provide site_key");
-        return Err(Rejection::bad_request(validation).into());
-    };
-    let room_key = if let Some(ro_id) = req.get_query("room_key") {
-        // if let Err(e) = UuidValidator.validate(ro_id) {
-        //     return Err(Rejection::from_error(e).into());
-        // }
-        ro_id
-    } else {
-        let mut validation = Validation::new();
-        validation.record("room_key", "should provide room_key");
-        return Err(Rejection::bad_request(validation).into());
-    };
-
+pub async fn list_chatmessage_from_chat(mut req: Request) -> Result {
+    let body = req.parse_body::<Map>().await?;
+    
+    let site_key = str_from_map_required("site_key", &body)?;
+    let room_key = str_from_map_required("room_key", &body)?;
+    
     let query = Query::from_entry("site_key", site_key);
     // query.add_filter("site_key", site_key);
     let chat_site = match ChatWebsite::find_one::<ChatWebsite>(&query).await {
@@ -331,33 +292,22 @@ pub async fn list_chatmessage_from_chat(req: Request) -> Result {
         }
         Err(e) => return Err(Rejection::from_error(e).into()),
     };
-    let page = if req.get_query("page").is_none() {
-        "1"
+    let page = usize_from_map_default("page", &body, 1)?;
+    let page_size = usize_from_map_default("page_size", &body, 10)?;
+    let date;
+    if page == 1 {
+        date = current_s() as usize;
     } else {
-        req.get_query("page").unwrap()
-    };
-    let page_size = if req.get_query("page_size").is_none() {
-        "10"
-    } else {
-        req.get_query("page_size").unwrap()
-    };
-
-    let res = &mut Response::default().context(&req);
-    match ChatService::list_messages(
-        &room,
-        utils::str_to_usize(page)?,
-        utils::str_to_usize(page_size)?,
-    )
-    .await
-    {
-        Ok(data) => {
-            res.set_json_data(json!(data));
-            res.set_code(StatusCode::OK);
-        }
-        Err(e) => {
-            res.set_code(StatusCode::INTERNAL_SERVER_ERROR);
-            res.set_error_message(e);
-        }
+        date = str_to_usize(&str_from_map_required("ts", &body)?)?;
     }
+    let res = &mut Response::default().context(&req);
+    let data = ChatService::list_messages(&room, page, page_size, date)
+        .await
+        .extract(&req)?;
+    let mut res_map = HashMap::new();
+    res_map.insert("data", json!(data));
+    res_map.insert("ts", date.into());
+    res.set_json_data(json!(res_map));
+    res.set_code(StatusCode::OK);
     Ok(res.clone().into())
 }

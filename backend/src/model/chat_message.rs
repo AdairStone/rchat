@@ -3,7 +3,9 @@ use serde::{Deserialize, Serialize};
 use zino::prelude::*;
 use zino_derive::{DecodeRow, Model, ModelAccessor, ModelHooks, Schema};
 use zino_model::User;
+use crate::utils::date_utils::serialize_datetime_with_timezone;
 
+use super::chat_files::ChatFiles;
 use super::ChatMedia;
 use super::ChatRoom;
 
@@ -54,8 +56,13 @@ pub struct ChatMessage {
         index_type = "btree"
     )]
     pub room_id: Uuid,
+    pub str_files: Option<String>,
+    #[schema(ignore)]
+    pub files: Vec<ChatFiles>,
+    #[serde(serialize_with = "serialize_datetime_with_timezone")]
     #[schema(read_only, default_value = "now", index_type = "btree")]
     pub create_at: DateTime,
+    #[serde(serialize_with = "serialize_datetime_with_timezone")]
     #[schema(default_value = "now", index_type = "btree")]
     pub update_at: DateTime,
     pub version: u64,

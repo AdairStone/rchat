@@ -4,6 +4,7 @@ import CodeBox from "./components/CodeBox.vue";
 import { message } from "@/utils/message";
 import { configWebsite, saveWebsite } from "@/api/website";
 import { useChatSiteStore } from "@/store/modules/site";
+import { websocketService } from "@/utils/websocketService";
 
 const code = ref<string>("// Your initial code here...");
 const siteStore = useChatSiteStore();
@@ -47,7 +48,20 @@ const configSite = async () => {
 
 onMounted(() => {
   configSite();
+  requestNotificationPermission();
 });
+
+function requestNotificationPermission() {
+  if (Notification.permission === "default") {
+    Notification.requestPermission().then(permission => {
+      if (permission === "granted") {
+        console.log("Notification permission granted.");
+      } else {
+        console.log("Notification permission denied.");
+      }
+    });
+  }
+}
 
 const activeStep = () => {
   if (siteData.value.status == "inited") {
@@ -83,7 +97,7 @@ defineOptions({
         <template #description>
           <div>
             请将下面代码添加到你的网页中,添加成功之后刷新该页面
-            <code-box :initialCode="code"></code-box>
+            <code-box :initialCode="code" />
           </div>
         </template>
       </el-step>

@@ -3,10 +3,11 @@ use crate::{
     model::{ChatMessage, ChatRoom, ChatWebsite},
     utils::{self, generate_random_string},
 };
-use aop_macro::transactional;
 use zino_core::{
-    datetime::{Date, DateTime}, error::Error, extension::JsonObjectExt, model::Query, orm::{GlobalPool, ModelAccessor, Schema}, warn, JsonValue, Map, Uuid
+    datetime::DateTime, error::Error, extension::JsonObjectExt, json, model::Query, orm::{ModelAccessor, Schema}, warn, JsonValue, Map, Uuid
 };
+
+use super::room_message_state::MessageStatusManager;
 
 pub struct ChatService;
 
@@ -133,7 +134,7 @@ impl ChatService {
                 Err(warn!("init room error"))
             }
         } else {
-            Err(warn!("site error"))
+            Err(warn!("site not found or site already confirmed"))
         }
     }
 
@@ -175,30 +176,43 @@ impl ChatService {
     ) -> Result<Map, Error> {
         let mut query: Query = Query::new(Map::from_entry("room_site_id", site_id.to_string()));
         let count_query = query.clone();
-
         query.order_by("create_at", true);
         query.set_limit(page_num);
         query.set_offset((page - 1) * page_num);
         let total = ChatRoom::count(&count_query).await?;
         let data = ChatRoom::find::<ChatRoom>(&query).await?;
         let mut res  = Map::new();
-        
+        tracing::info!("list rooms 1: {data:?}");
         let md = data.iter().map(|r| -> JsonValue {
             serde_json::to_value(r).unwrap()
         }).collect::<Vec<JsonValue>>();
+        tracing::info!("list rooms 2: {md:?}");
         res.append(&mut Map::from_entry("data", md));
         res.append(&mut Map::from_entry("total", total));
         Ok(res)
     }
 
     // 3.1 （客服人员） 加入房间，消息变成已读。
-    // #[transactional]
     pub async fn join_room(room: &ChatRoom) -> Result<(), Error> {
-        let query: Query = Query::new(Map::from_entry("room_id", room.id.to_string()));
+        let mut query: Query = Query::new(Map::from_entry("room_id", room.id.to_string()));
+        query.add_filter("status", "sended");
         let mut messages = ChatMessage::find::<ChatMessage>(&query).await?;
         for message in messages.iter_mut() {
             message.status = "readed".to_owned();
+            message.update_at = DateTime::now();
             message.clone().update().await?;
+        }
+        let site_query: Query = Query::new(Map::from_entry("id", room.room_site_id.to_string()));
+        let site = ChatWebsite::find_one::<ChatWebsite>(&site_query).await?;
+        if site.is_some() {// 读取消息后重置消息状态
+            match MessageStatusManager::reset_latest_count(&site.unwrap().site_key, &room.id.to_string()).await {
+                Ok(s) => {
+                    tracing::info!("reset latest count success");
+                },
+                Err(e) => {
+                   tracing::error!("reset latest count error: {}", e);
+                }
+            }
         }
         Ok(())
     }
@@ -210,17 +224,20 @@ impl ChatService {
     }
 
     // 3.2 获取消息列表
-    #[transactional]
     pub async fn list_messages(
         room: &ChatRoom,
         page: usize,
         page_num: usize,
+        ts: usize,
     ) -> Result<Vec<ChatMessage>, Error> {
         let mut query = Query::new(Map::from_entry("room_id", room.id.to_string()));
         query.order_desc("create_at");
-        // query.
+        let start = DateTime::from_timestamp(ts as  i64);
+        query.add_filter("create_at", json!({"$le": start}));
         query.set_limit(page_num);
         query.set_offset((page - 1) * page_num);
+        Self::join_room(room).await?;
+        tracing::info!("list messages condition: start:{}: {:?}", &start, &query);
         Ok(ChatMessage::find(&query).await?)
     }
 }

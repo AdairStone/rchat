@@ -15,6 +15,8 @@ import {
 } from "@/api/user";
 import { useMultiTagsStoreHook } from "./multiTags";
 import { type DataInfo, setToken, removeToken, userKey } from "@/utils/auth";
+import { websocketService } from "@/utils/websocketService";
+// import { websocketService } from "@/utils/websocketService";
 
 export const useUserStore = defineStore({
   id: "pure-user",
@@ -63,9 +65,9 @@ export const useUserStore = defineStore({
         // console.log('test: ',data);
         getLogin(data)
           .then(data => {
-            if (data?.success) { 
+            if (data?.success) {
               const info = {
-                avatar: '',
+                avatar: "",
                 username: data.data.entry.name,
                 /** 昵称 */
                 nickname: data.data.entry.name,
@@ -76,10 +78,12 @@ export const useUserStore = defineStore({
                 /** 用于调用刷新`accessToken`的接口时所需的`token` */
                 refreshToken: data.data.refresh_token,
                 /** `accessToken`的过期时间（格式'xxxx/xx/xx xx:xx:xx'） */
-                expires: new Date(new Date().getTime() + data.data.expires_in * 1000)
+                expires: new Date(
+                  new Date().getTime() + data.data.expires_in * 1000
+                )
               };
               setToken(info);
-            };
+            }
             resolve(data);
           })
           .catch(error => {
@@ -94,6 +98,7 @@ export const useUserStore = defineStore({
       removeToken();
       useMultiTagsStoreHook().handleTags("equal", [...routerArrays]);
       resetRouter();
+      websocketService.close();
       router.push("/login");
     },
     /** 刷新`token` */
@@ -105,7 +110,9 @@ export const useUserStore = defineStore({
               const info = {
                 accessToken: res.data.access_token,
                 refreshToken: data.refreshToken,
-                expires: new Date(new Date().getTime() + res.data.expires_in * 1000)
+                expires: new Date(
+                  new Date().getTime() + res.data.expires_in * 1000
+                )
               };
               setToken(info);
               resolve(res);

@@ -1,20 +1,23 @@
 use std::sync::{atomic::AtomicUsize, Arc};
 
 use crate::{
-    controller::{auth, chat_ctl, file, stats, user},
+    controller::{auth, chat_ctl, file, file_ctl, stats, user},
     middleware,
-    model::Tag, wsserver::{self, server::{self, ChatServer}},
+    model::Tag,
+    wsserver::{
+        self,
+        server::{self, ChatServer},
+    },
 };
 use actix::{Actor, Addr};
-use actix_web::web::{self, get, post, scope, ServiceConfig};
+use actix_web::web::{self, delete, get, post, scope, ServiceConfig};
 use zino::{DefaultController, RouterConfigure};
 use zino_model::User;
 
 lazy_static! {
     static ref APP_STATE: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
-    static ref SERVER: Addr<ChatServer> = server::ChatServer::new(APP_STATE.clone()).start();
+    static ref SERVER: Addr<ChatServer> = server::ChatServer::new().start();
     static ref CURRENT_VISITORS: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
-
 }
 
 pub fn main_routes() -> Vec<RouterConfigure> {
@@ -23,6 +26,8 @@ pub fn main_routes() -> Vec<RouterConfigure> {
         ws_router as RouterConfigure,
         file_router as RouterConfigure,
         chat_router as RouterConfigure,
+        chat_outer_router as RouterConfigure,
+        public_router as RouterConfigure,
     ]
 }
 
@@ -53,13 +58,12 @@ fn ws_router(cfg: &mut ServiceConfig) {
             .app_data(web::Data::from(APP_STATE.clone()))
             // .app_data(web::Data::from(CURRENT_VISITORS))
             .app_data(web::Data::new(SERVER.clone()))
-            .wrap(middleware::UserSessionInitializer)
-            ,
+            .wrap(middleware::UserSessionInitializer),
     );
     cfg.route("/clientchat", web::get().to(wsserver::chat_route))
-    .app_data(web::Data::from(APP_STATE.clone()))
-    // .app_data(web::Data::from(CURRENT_VISITORS))
-    .app_data(web::Data::new(SERVER.clone()));
+        .app_data(web::Data::from(APP_STATE.clone()))
+        // .app_data(web::Data::from(CURRENT_VISITORS))
+        .app_data(web::Data::new(SERVER.clone()));
 }
 
 fn file_router(cfg: &mut ServiceConfig) {
@@ -67,7 +71,18 @@ fn file_router(cfg: &mut ServiceConfig) {
         scope("/file")
             .route("/upload", post().to(file::upload))
             .route("/decrypt", get().to(file::decrypt))
+            .route("/upload/chat", post().to(file_ctl::upload))
+            .route("/url", post().to(file_ctl::get_file_url))
             .wrap(middleware::UserSessionInitializer),
+    );
+}
+
+fn public_router(cfg: &mut ServiceConfig) {
+    cfg.service(
+        scope("/pub/file")
+            .route("/upload", post().to(file_ctl::upload))
+            .route("/upload", delete().to(file_ctl::delete_file))
+            .route("/url", post().to(file_ctl::get_file_url)),
     );
 }
 
@@ -106,20 +121,24 @@ fn tag_debug_router(cfg: &mut ServiceConfig) {
         .route("/tag/mock", get().to(Tag::mock));
 }
 
-
-fn chat_router(cfg: &mut ServiceConfig){
+fn chat_router(cfg: &mut ServiceConfig) {
     cfg.service(
         scope("/service")
             .route("/config-site", post().to(chat_ctl::admin_config_website))
             .route("/save-site", post().to(chat_ctl::save_site_config))
             .route("/list-rooms", get().to(chat_ctl::list_rooms))
-            .route("/list-chatmessage", get().to(chat_ctl::list_chatmessage))
+            .route("/list-chatmessage", post().to(chat_ctl::list_chatmessage))
             .wrap(middleware::UserSessionInitializer),
     );
+    
+}
+
+fn chat_outer_router(cfg: &mut ServiceConfig) {
     cfg.service(
         scope("/load")
             .route("/load.js", get().to(chat_ctl::load_site_js))
-            .route("/messages", get().to(chat_ctl::list_chatmessage_from_chat))
-            ,
+            .route("/messages", post().to(chat_ctl::list_chatmessage_from_chat))
+            .route("/upload", post().to(file_ctl::upload))
+            .route("/upload", delete().to(file_ctl::delete_file))
     );
 }

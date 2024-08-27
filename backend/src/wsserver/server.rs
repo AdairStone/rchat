@@ -1,18 +1,21 @@
 //! `ChatServer` is an actor. It maintains list of connection client session.
 //! And manages available rooms. Peers send messages to other peers in same
 //! room through `ChatServer`.
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
-};
 use actix::prelude::*;
+use futures::sink::Send;
 use rand::{rngs::ThreadRng, Rng};
+use std::collections::{HashMap, HashSet};
+use tokio::{sync::oneshot, task};
+use zino::prelude::{DateTime, ModelAccessor};
 use zino_core::orm::Schema;
 
-use crate::model::ChatMessage;
+use crate::{
+    dto::chat_message_entity::{ChatMessageDto, ChatNotify, ChatNotifyMessageDto},
+    model::ChatMessage,
+    service::room_message_state::MessageStatusManager,
+};
+
+use super::session::WsChatSession;
 
 /// Chat server sends this messages to session
 #[derive(Message)]
@@ -25,6 +28,7 @@ pub struct Message(pub String);
 #[derive(Message)]
 #[rtype(usize)]
 pub struct Connect {
+    pub session: WsChatSession,
     pub room: String,
     pub addr: Recipient<Message>,
 }
@@ -34,10 +38,11 @@ pub struct Connect {
 #[rtype(result = "()")]
 pub struct Disconnect {
     pub id: usize,
+    pub session: WsChatSession,
 }
 
 /// Send message to specific room
-#[derive(Message)]
+#[derive(Message, Debug)]
 #[rtype(result = "()")]
 pub struct ClientMessage {
     /// Id of the client session
@@ -48,6 +53,7 @@ pub struct ClientMessage {
     pub room: String,
     /// 具体消息
     pub mess: ChatMessage,
+    pub session: WsChatSession,
 }
 
 /// List of available rooms
@@ -64,32 +70,46 @@ pub struct Join {
     /// Client ID
     pub id: usize,
     /// Room name
-    pub name: String,
+    pub room_id: String,
+    pub session: WsChatSession,
 }
 
-/// `ChatServer` manages chat rooms and responsible for coordinating chat session.
-///
-/// Implementation is very naïve.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ChatServer {
+    // 用于接收消息
     sessions: HashMap<usize, Recipient<Message>>,
+    // 用于发送管理消息
+    server_sessions: HashMap<String, (String, Recipient<Message>)>,
     rooms: HashMap<String, HashSet<usize>>,
+    // 记录站点关联房间
+    site_rooms: HashMap<String, HashSet<String>>,
     rng: ThreadRng,
-    visitor_count: Arc<AtomicUsize>,
+    // visitor_count: Arc<AtomicUsize>,
 }
 
 impl ChatServer {
-    pub fn new(visitor_count: Arc<AtomicUsize>) -> ChatServer {
-        // default room
-        let mut rooms = HashMap::new();
-        rooms.insert("main".to_owned(), HashSet::new());
-
+    pub fn new() -> ChatServer {
+        let rooms = HashMap::new();
         ChatServer {
             sessions: HashMap::new(),
+            server_sessions: HashMap::new(),
             rooms,
             rng: rand::thread_rng(),
-            visitor_count,
+            // visitor_count,
+            site_rooms: HashMap::new(),
         }
+    }
+
+    pub fn add_room(&mut self, room_site: &str, room: &str, addr: Recipient<Message>) -> usize {
+        let id = self.rng.gen::<usize>();
+        self.sessions.insert(id, addr);
+        // 添加房间跟连接依赖关系以及跟站点依赖关系
+        self.rooms.entry(room.to_owned()).or_default().insert(id);
+        self.site_rooms
+            .entry(room_site.to_string())
+            .or_default()
+            .insert(room_site.to_string());
+        id
     }
 }
 
@@ -106,57 +126,87 @@ impl ChatServer {
             }
         }
     }
+
+    /// 给服务人员发送消息
+    fn send_server_message(&self, site_key: &str, message: &str) {
+        if let Some((room,addr)) = self.server_sessions.get(site_key) {
+            addr.do_send(Message(message.to_owned()));
+        }
+    }
 }
 
-/// Make actor from `ChatServer`
 impl Actor for ChatServer {
-    /// We are going to use simple Context, we just need ability to communicate
-    /// with other actors.
     type Context = Context<Self>;
 }
 
-/// Handler for Connect message.
-///
-/// Register new session and assign unique id to this session
 impl Handler<Connect> for ChatServer {
     type Result = usize;
-
-    fn handle(&mut self, msg: Connect, _: &mut Context<Self>) -> Self::Result {// 连接开启一个房间 条件：获取site_key
-        tracing::info!("Someone joined");
-        // notify all users in same room
-        // msg.addr.
+    fn handle(&mut self, msg: Connect, _: &mut Context<Self>) -> Self::Result {
+        // 连接开启一个房间 条件：获取site_key
+        tracing::info!("joining...");
+        let user = msg.session.user;
+        tracing::info!("{:?} joined {}", &user, &msg.room);
+        if user.is_some() {
+            self.server_sessions
+                .insert(msg.session.site_key.clone(), (msg.room.clone(), msg.addr.clone()));
+        }
         let room: &String = &msg.room;
-        self.send_message(room, "Someone joined", 0);
-        // register session with random id
-        let id = self.rng.gen::<usize>();
-        self.sessions.insert(id, msg.addr);
-        // auto join session to main room
-        self.rooms.entry(room.to_owned()).or_default().insert(id);
-        let count = self.visitor_count.fetch_add(1, Ordering::SeqCst);
-        self.send_message(room, &format!("Total visitors {count}"), 0);
-        // send id back
+        let id = self.add_room(&msg.session.site_key, room, msg.addr);
         id
     }
 }
 
-/// Handler for Disconnect message.
 impl Handler<Disconnect> for ChatServer {
     type Result = ();
-    fn handle(&mut self, msg: Disconnect, _: &mut Context<Self>) {
+    fn handle(&mut self, msg: Disconnect, ctx: &mut Context<Self>) {
         tracing::info!("Someone disconnected");
         let mut rooms: Vec<String> = Vec::new();
-        // remove address
+
+        // Remove session from all rooms
         if self.sessions.remove(&msg.id).is_some() {
-            // remove session from all rooms
-            for (name, sessions) in &mut self.rooms {
+            for (room_id, sessions) in &mut self.rooms {
                 if sessions.remove(&msg.id) {
-                    rooms.push(name.to_owned());
+                    rooms.push(room_id.to_owned());
                 }
             }
         }
-        // send message to other users
-        for room in rooms {
-            self.send_message(&room, "Someone disconnected", 0);
+
+        // Server offline logic
+        if let Some(user) = msg.session.user {
+            self.server_sessions.remove(&msg.session.site_key);
+        } else {
+            // Update room status
+            let mut chat_room = msg.session.room_obj.clone();
+            chat_room.status = "offline".to_string();
+            chat_room.update_at = DateTime::now();
+
+            // Clear room status cache
+            let site_key = msg.session.site_key.clone();
+            let room_id = msg.session.room.clone();
+            self.site_rooms
+                .entry(site_key.clone())
+                .or_default()
+                .remove(&room_id);
+
+            // Handle Redis update and room status update asynchronously
+            if let Some(rooms_set) = self.site_rooms.get(&site_key) {
+                let rooms_set_cloned = rooms_set.clone();
+                let site_key_clone = site_key.clone();
+                let task = async move {
+                    if let Err(e) = MessageStatusManager::set_site_rooms(&site_key_clone, &rooms_set_cloned).await {
+                        tracing::error!("Update redis site:{} rooms error: {}", &site_key_clone, e);
+                    } else {
+                        tracing::info!("Update redis site:{} rooms:{:?}", &site_key_clone, &rooms_set_cloned);
+                    }
+
+                    if let Err(e) = chat_room.update().await {
+                        tracing::warn!("message save error: {:?}", e);
+                    }
+                }
+                .into_actor(self);
+
+                ctx.spawn(task);
+            }
         }
     }
 }
@@ -167,19 +217,69 @@ impl Handler<ClientMessage> for ChatServer {
 
     fn handle(&mut self, msg: ClientMessage, context: &mut Context<Self>) {
         // 发送前保存
-        let fut = async {
+        tracing::info!("ClientMessage: {:?}", &msg);
+        let site_key = msg.session.site_key.clone();
+        let str_files = msg.mess.str_files.clone();
+        let s_session  = self.server_sessions.get(&site_key).clone();
+        tracing::info!("server_sessions: {:?}", &s_session);
+        let s_in_room = if s_session.is_some() {s_session.unwrap().0 == msg.room} else {false};
+        let (tx, mut rx) = oneshot::channel::<String>();
+        let room_id = msg.id.clone();
+        // 异步任务
+        let fut = async move {
+            if s_in_room {
+                tracing::info!("send_message");
+                let _ = tx.send("send_message".to_string());
+            } else {
+                // 不在房间，发送通知
+                let notify_message = ChatNotify::new_from_redis(&site_key).await;
+                match serde_json::to_string(&notify_message) {
+                    Ok(notify_json) => {
+                        tracing::info!("send notify: {}", &notify_json);
+                        let _ = tx.send(notify_json);
+                    }
+                    Err(e) => {
+                        tracing::warn!("message save error: {:?}", e);
+                    }
+                }
+            }
             let result = msg.mess.insert().await;
             result
         }
         .into_actor(self)
-        .map(|result, _act, _ctx| {
+        .map(move |result, act, _ctx| {
+            tracing::info!("handle result");
             match result {
-                Ok(_r) => {()},
-                Err(e) => { tracing::warn!("message save error: {:?}", e); },
+                Ok(_) => {
+                    tracing::info!("handle result in ok");
+                    if let Ok(rs) = rx.try_recv() {
+                        if rs == "send_message" {
+                            tracing::info!("msg.session: {:?}", &msg.session);
+                            // let str_files = msg.mess.str_files.as_ref().map(|s| s.clone());
+                            let user_name = msg.session.user.as_ref().map(|u| u.name().to_string());
+                            let message_data = ChatMessageDto::new_text_str_files_msg(&msg.msg, str_files, msg.session.user.is_none(), user_name, Some(msg.room.clone()));
+                            let json = match serde_json::to_string(&message_data) {
+                                Ok(s) => s,
+                                Err(e) => {
+                                    tracing::error!("message handle error: {:?}", e);
+                                    "".to_string()
+                                },
+                            };
+                            tracing::info!("real send_message: {}: {}", &rs, &json);
+                            act.send_message(&msg.room, json.as_str(), room_id);
+                        } else {
+                            if msg.session.user.is_none() {
+                                act.send_server_message(&msg.session.site_key, &rs);
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("message save error: {:?}", e);
+                }
             }
         });
         context.spawn(fut);
-        self.send_message(&msg.room, msg.msg.as_str(), msg.id);
     }
 }
 
@@ -189,7 +289,7 @@ impl Handler<ListRooms> for ChatServer {
     fn handle(&mut self, _: ListRooms, _: &mut Context<Self>) -> Self::Result {
         let mut rooms = Vec::new();
         for key in self.rooms.keys() {
-            rooms.push(key.to_owned())
+            rooms.push(key.to_owned());
         }
         MessageResult(rooms)
     }
@@ -200,19 +300,41 @@ impl Handler<ListRooms> for ChatServer {
 impl Handler<Join> for ChatServer {
     type Result = ();
     fn handle(&mut self, msg: Join, _: &mut Context<Self>) {
-        let Join { id, name } = msg;
+        let Join {
+            id,
+            room_id,
+            session,
+        } = msg;
         let mut rooms = Vec::new();
-        // remove session from all rooms
         for (n, sessions) in &mut self.rooms {
             if sessions.remove(&id) {
                 rooms.push(n.to_owned());
             }
         }
-        // send message to other users
-        for room in rooms {
-            self.send_message(&room, "Someone disconnected", 0);
+
+        let user = session.user;
+        tracing::info!("{:?} joined {}", &user, &room_id);
+        if user.is_some() {
+            if let Some((room, _addr)) = self.server_sessions.get_mut(&session.site_key.clone()) {
+                *room = room_id.clone();
+            }
+
         }
-        self.rooms.entry(name.clone()).or_default().insert(id);
-        self.send_message(&name, "Someone connected", id);
+
+        self.rooms.entry(room_id.clone()).or_default().insert(id);
+
+        // 发起服务通知
+        let from_user = user.is_none();
+        if !from_user {// 管理端加入
+            let user_name = user.as_ref().map(|u| u.name().to_string().clone());
+            let msg = ChatMessageDto::new_notify_msg(
+                &format!("{} 为你提供服务", &user_name.clone().unwrap_or_default()),
+                from_user,
+                user_name,
+                Some(room_id.clone())
+            );
+            let msg_str = serde_json::to_string(&msg).unwrap();
+            self.send_message(&room_id, &msg_str, id);
+        }
     }
 }

@@ -1,13 +1,14 @@
 use std::time::{Duration, Instant};
 
 use actix::prelude::*;
-use actix_web::http::header::Date;
 use actix_web_actors::ws;
-use tokio::join;
-use zino_core::{datetime::DateTime, orm::Schema, Uuid};
+use zino_core::{datetime::DateTime, Uuid};
 use zino_model::User;
 
-use crate::{model::{ChatMessage, ChatRoom}, service::chat_service::ChatService};
+use crate::{
+    model::{ChatMessage, ChatRoom},
+    service::room_message_state::MessageStatusManager,
+};
 
 use super::server;
 
@@ -16,7 +17,7 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 /// How long before lack of client response causes a timeout
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(20);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WsChatSession {
     pub site_key: String,
     /// unique session id
@@ -42,14 +43,18 @@ impl WsChatSession {
     ///
     /// also this method checks heartbeats from client
     fn hb(&self, ctx: &mut ws::WebsocketContext<Self>) {
-        ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
+        // let session = self.clone();
+        ctx.run_interval(HEARTBEAT_INTERVAL, move |act, ctx| {
             // check client heartbeats
             if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
                 // heartbeat timed out
                 tracing::info!("Websocket Client heartbeat failed, disconnecting!");
                 // notify chat server
-                act.addr.do_send(server::Disconnect { id: act.id });
-                
+                act.addr.do_send(server::Disconnect {
+                    id: act.id,
+                    session: act.clone(),
+                });
+
                 // stop actor
                 ctx.stop();
                 // don't try to send a ping
@@ -65,6 +70,7 @@ impl Actor for WsChatSession {
     /// Method is called on actor start.
     /// We register ws session with ChatServer
     fn started(&mut self, ctx: &mut Self::Context) {
+        tracing::info!("Websocket Client connected 1");
         // we'll start heartbeat process on session start.
         self.hb(ctx);
         // register self in chat server. `AsyncContext::wait` register
@@ -72,9 +78,11 @@ impl Actor for WsChatSession {
         // before processing any other events.
         // HttpContext::state() is instance of WsChatSessionState, state is shared
         // across all routes within application
+        tracing::info!("Websocket Client connected 2");
         let addr = ctx.address();
         self.addr
             .send(server::Connect {
+                session: self.clone(),
                 addr: addr.recipient(),
                 room: self.room.clone(),
             })
@@ -92,7 +100,10 @@ impl Actor for WsChatSession {
 
     fn stopping(&mut self, _: &mut Self::Context) -> Running {
         // notify chat server
-        self.addr.do_send(server::Disconnect { id: self.id });
+        self.addr.do_send(server::Disconnect {
+            id: self.id,
+            session: self.clone(),
+        });
         // todo!(); // 更新房间状态 leave
         Running::Stop
     }
@@ -152,20 +163,18 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                                     fut::ready(())
                                 })
                                 .wait(ctx)
-                            // .wait(ctx) pauses all events in context,
-                            // so actor wont receive any new messages until it get list
-                            // of rooms back
                         }
                         "/join" => {
                             if v.len() == 2 {
                                 self.room = v[1].to_owned();
                                 self.addr.do_send(server::Join {
                                     id: self.id,
-                                    name: self.room.clone(),
+                                    room_id: self.room.clone(),
+                                    session: self.clone(),
                                 });
-                                ctx.text("joined");
+                                // ctx.text("joined");
                             } else {
-                                ctx.text("!!! room name is required");
+                                // ctx.text("!!! room name is required");
                             }
                         }
                         "/name" => {
@@ -180,14 +189,19 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                 } else {
                     let mesage = match serde_json::from_str::<ChatMessage>(m) {
                         Ok(im) => Some(im),
-                        Err(ie) => { ctx.text(format!("error! {}", ie)); None } ,
+                        Err(ie) => {
+                            ctx.text(format!("error! {}", ie));
+                            None
+                        }
                     };
                     if let Some(mut mess) = mesage {
-                        // send message to chat server
                         mess.id = Uuid::now_v7();
-                        mess.name = if self.name.is_some() {self.name.clone().unwrap()} else { "".to_owned() };
-                        mess.room_id = self.room_obj.id;
-                        // mess.avatar
+                        mess.name = if self.name.is_some() {
+                            self.name.clone().unwrap()
+                        } else {
+                            "".to_owned()
+                        };
+                        mess.room_id = Uuid::parse_str(&self.room).unwrap();
                         mess.create_at = DateTime::now();
                         mess.update_at = DateTime::now();
                         mess.status = "sended".to_string();
@@ -196,11 +210,32 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                             None => None,
                         };
 
+                        let room_id = mess.clone().room_id.clone().to_string();
+                        let site = self.site_key.clone();
+                        let from_server = self.user.is_some();// 来自服务
+                        let r = async move {
+                            if !from_server{
+                                MessageStatusManager::increase_latest_count(&site, room_id.as_str(), 1)
+                                .await
+                            } else {
+                                Ok(())    
+                            }
+                        }
+                        .into_actor(self)
+                        .map(|result, _act, _ctx| match result {
+                            Ok(_r) => (),
+                            Err(e) => {
+                                tracing::warn!("message save error: {:?}", e);
+                            }
+                        });
+                        ctx.spawn(r);
+
                         self.addr.do_send(server::ClientMessage {
                             id: self.id,
                             msg: mess.content.clone(),
                             room: self.room.clone(),
-                            mess
+                            mess,
+                            session: self.clone(),
                         });
                     }
                 }
@@ -217,4 +252,3 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
         }
     }
 }
-

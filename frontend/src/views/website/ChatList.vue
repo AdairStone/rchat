@@ -5,10 +5,12 @@ import { useChatSiteStore } from "@/store/modules/site";
 import { message } from "@/utils/message";
 import { onMounted, ref } from "vue";
 import ChatModal from "./ChatModal.vue";
-import { fa } from "element-plus/es/locales.mjs";
+import { websocketService } from "@/utils/websocketService";
 
 const rooms = ref([]);
 const roomKey = ref("");
+const roomId = ref("");
+const siteId = ref("");
 const isOpen = ref(false);
 const tableLoading = ref(false);
 const queryParams = ref({
@@ -45,11 +47,14 @@ function currentChange(val: Room) {
   handleClose();
   if (val) {
     roomKey.value = val.room_key;
+    roomId.value = val.id;
+    siteId.value = val.room_site_id;
     if (!isOpen.value) {
       isOpen.value = true;
       setTimeout(() => {
         document.querySelector(".modal")?.classList.add("open");
       }, 10);
+      websocketService.joinRoom(val.id);
     }
   }
 }
@@ -66,7 +71,9 @@ onMounted(() => {
     ...{ site_id: siteStore.chatSite.site_id },
     ...queryParams.value
   });
+  websocketService.connect();
 });
+
 function handlePageChange(page, pageSize) {
   queryParams.value.page = page;
   queryParams.value.pageSize = pageSize;
@@ -87,26 +94,29 @@ defineOptions({
     <el-pagination
       small
       layout="total, prev, pager, next, jumper"
-      style="width: 440px"
       :total="queryParams.total"
       @change="handlePageChange"
     />
     <el-table
       :data="rooms"
-      style="width: 440px"
       size="small"
       highlight-current-row
-      @current-change="currentChange"
       :loading="tableLoading"
+      @current-change="currentChange"
+      @row-click="currentChange"
     >
+      <el-table-column prop="id" label="会话编号" width="280" />
       <el-table-column prop="create_at" label="发起时间" width="180" />
+      <el-table-column prop="update_at" label="最新时间" width="180" />
       <el-table-column prop="status" label="状态" width="80" />
       <el-table-column prop="room_key" label="客户编号" width="180" />
     </el-table>
     <ChatModal
       :isOpen="true"
       :roomKey="roomKey"
+      :roomId="roomId"
+      :siteId="siteId"
       @close="handleClose"
-    ></ChatModal>
+    />
   </div>
 </template>

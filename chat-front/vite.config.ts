@@ -25,6 +25,11 @@ export default defineConfig({
         changeOrigin: true,
         ws: true, // 启用 Websocket 代理
       },
+      '/load': {
+        target: 'http://127.0.0.1:6080/',
+        // changeOrigin: true,
+        ws: false, // 启用 Websocket 代理
+      },
     },
   },
   build: {

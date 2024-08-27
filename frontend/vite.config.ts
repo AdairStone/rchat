@@ -26,17 +26,17 @@ export default ({ mode }: ConfigEnv): UserConfigExport => {
       // 本地跨域代理 https://cn.vitejs.dev/config/server-options.html#server-proxy
       proxy: {
         // 将本地开发服务器的 /api 路径代理到 http://localhost:3000
-        '/api': {
-          target: 'http://127.0.0.1:6080/',
+        "/api": {
+          target: "http://127.0.0.1:6080/",
           changeOrigin: true,
           ws: false, // 启用 Websocket 代理
-          rewrite: (path) => path.replace(/^\/api/, '')
+          rewrite: path => path.replace(/^\/api/, "")
         },
-        '/ws': {
-          target: 'http://127.0.0.1:6080',
+        "/ws": {
+          target: "http://127.0.0.1:6080",
           changeOrigin: true,
-          ws: true, // 启用 Websocket 代理
-        },
+          ws: true // 启用 Websocket 代理
+        }
       },
       // 预热文件以提前转换和缓存结果，降低启动期间的初始页面加载时长并防止转换瀑布
       warmup: {

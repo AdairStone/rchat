@@ -28,6 +28,7 @@ port = 6080
 [database]
 namespace = "dc"
 max-rows = 10000
+time-zone = "Asia/Shanghai"
 
 [[postgres]]
 host = "192.168.0.105"
@@ -35,6 +36,7 @@ port = 5432
 database = "data_cube"
 username = "postgres"
 password = "123456"
+
 
 [tracing]
 filter = "debug,sqlx=info,zino=info,zino_core=info"

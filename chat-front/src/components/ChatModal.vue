@@ -7,7 +7,7 @@
                 <div class="chat-time">{{ currentTime }}</div>
                 <div class="chat-notify">adabibi.com智能客服为您提供服务</div>
             </div>
-            <div class="chat-messages" ref="chatMessage">
+            <div ref="chatMessagesBody" class="chat-messages">
                 <div v-for="(message, index) in messages" :key="index">
                     <div class="message-notify" v-if="message.notify && '' !== message.notify">
                         {{ message.time }}
@@ -15,11 +15,13 @@
                     </div>
                     <div class="message-content" v-if="!message.notify || '' === message.notify">
                         <div class="message-header" :style="{ 'order': message.user ? '0' : '1' }">
-                            <Icon icon="ep:avatar" width="35" height="30" style="color: #FFFFFF;" />
+                            <Icon v-if="message.user" icon="ep:avatar" width="35" height="30" style="color: #FFFFFF;" />
+                            <Icon v-if="!message.user" icon="mdi:customer-service" width="35" height="35"
+                                style="color: #FFFFFF" />
                         </div>
                         <div class="message-main" :class="{ 'user-message': !message.user }">
                             <div class="message-text" :style="{ 'float': message.user ? 'left' : 'right' }"
-                                v-if="message.text && message.text !== ''">
+                                v-if="(message.text && message.text !== '') || (message.files && message.files.length > 0)">
                                 <div style="display: inline-block;">
                                     <ul class="message-files" v-if="message.files && message.files.length > 0">
                                         <li :style="{ 'float': message.user ? 'left' : 'right' }"
@@ -32,10 +34,10 @@
                                                 </video>
                                             </div>
                                             <div v-if="!isVideo(i.url) && !isImage(i.url)"
-                                                @click="toDownload(i.url, i.name)">
+                                                @click="toDownload(i.url, i.file_name)">
                                                 <Icon icon="mage:file-3" width="75" height="75" style="color: #757070">
                                                 </Icon>
-                                                <div style="text-align: center;">{{ i.name }}</div>
+                                                <div style="text-align: center;">{{ i.file_name }}</div>
                                             </div>
                                         </li>
                                     </ul>
@@ -53,9 +55,12 @@
                     :showPreview="false" :native="true" :skin="0" title="表情包">
                 </EmojiPicker>
             </div>
-            <FilePond ref="myFilePond" name="myFilePond" class-name="filepond-custom" label-idle='上传本地文件'
-                allow-multiple="true" v-bind:files="myFiles" styleButtonRemoveItemPosition="right" allowPaste="true"
-                maxFiles="3" imagePreviewHeight="100" :style="{ display: pondVisiable ? 'block' : 'none' }" />
+            <FilePond ref="myFilePond" name="myFilePond" class-name="filepond-custom" label-idle="上传本地文件"
+                allow-multiple="true" styleButtonRemoveItemPosition="right" allowPaste="true" maxFiles="3"
+                :files="pondFiles" imagePreviewHeight="100" :style="{
+                    display: pondVisiable || myFiles.length > 0 ? 'block' : 'none'
+                }" server="/load/upload" v-on:processfile="handleAddFile" v-on:removefile="handleRemoveFile"
+                v-on:addfile="handleStartAddFile" />
             <div class="chat-input">
                 <Icon @click="showPicker" icon="fluent:emoji-add-24-regular" width="35" height="35"
                     style="color: #FFFFFF" />
@@ -71,12 +76,11 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, nextTick, watch, onMounted } from 'vue';
+import { defineComponent, ref, nextTick, watch, onMounted, onUnmounted, onBeforeUpdate, onUpdated } from 'vue';
 import Cookies from 'js-cookie';
 import { Icon } from '@iconify/vue';
 import { Picker as EmojiPicker, EmojiIndex } from "emoji-mart-vue-fast/src";
 import data from 'emoji-mart-vue-fast/data/all.json'
-import emojiRegex from 'emoji-regex'
 import vueFilePond from 'vue-filepond';
 import FilePondPluginFileValidateType from 'filepond-plugin-file-validate-type/dist/filepond-plugin-file-validate-type.esm.js';
 import FilePondPluginImagePreview from 'filepond-plugin-image-preview/dist/filepond-plugin-image-preview.esm.js';
@@ -87,6 +91,7 @@ import 'filepond-plugin-image-preview/dist/filepond-plugin-image-preview.min.css
 import { formatDateTime, isImagePath, isVideoUrl, downloadFile } from '@/utils/commonUtil';
 import ImagePreview from './ImagePreview.vue'
 import { WebSocketService } from '@/utils/websocketService';
+import { loadMessages } from '@/api/chat';
 
 const FilePond = vueFilePond(FilePondPluginFileValidateType, FilePondPluginImagePreview);
 
@@ -111,18 +116,16 @@ export default defineComponent({
     },
     emits: ['close'],
     setup(props, { emit }) {
+        const chatMessagesBody = ref<HTMLElement | null>(null);
+        const messageInputRef = ref<HTMLInputElement | null>(null);
+
         const currentTime = formatDateTime(new Date());
         const newMessage = ref('');
         const messages = ref([
-            { text: '', time: '10:34:12', user: false, userName: '', fileName: '', files: [], notify: '阿达为你提供服务' },
-            { text: '你好，请问有什么问题需要帮您解决？', time: '10:33:25', user: false, userName: '', files: [{ url: 'http://192.168.0.105/qi.png', name: '' }, { url: 'http://192.168.0.105/hahah.txt', name: 'hahah.txt' }, { url: 'http://192.168.0.105/hahah.txt', name: 'hahah.txt' }], notify: '' },
-            { text: '你好，请问怎么充值', time: '10:33:55', user: true, userName: '', fileName: '', files: [{ url: 'http://192.168.0.105/q33.png', name: '' }, { url: 'http://192.168.0.105/dify.mp4', name: '' }, { url: 'http://192.168.0.105/hahah.txt', name: 'hahah.txt' }] },
-            { text: '在系统后台选择充值服务，可以进行充值😊', time: '10:34:12', user: false, userName: '', fileName: '', files: [{ url: 'http://192.168.0.105/q33.png', name: '' }, { url: 'http://192.168.0.105/q33.png', name: '' }, { url: 'http://192.168.0.105/q.zip', name: 'q.zip' }], notify: '' },
-            { text: '', time: '10:34:12', user: false, userName: '', fileName: '', files: [], notify: '您已离线<span @click="reconnect">重新连接</span>' },
         ]);
 
         const isEmojiPickerVisible = ref(false);
-        const messageInputRef = ref<HTMLInputElement | null>(null);
+
         const focusInput = () => {
             if (messageInputRef.value) {
                 messageInputRef.value.focus();
@@ -151,6 +154,7 @@ export default defineComponent({
         };
 
         const myFiles = ref<any>([]);
+        const pondFiles = ref<any>([]);
 
         const isImage = (url: string) => {
             return isImagePath(url)
@@ -159,14 +163,92 @@ export default defineComponent({
         const isVideo = (url: string) => {
             return isVideoUrl(url)
         }
+        const registeredScroller = ref<any>(false);
+        watch(props, (val) => {
+            console.log("props changed", val);
+            if (val.isOpen) {
+                nextTick(() => {
+                    if (chatMessagesBody.value && registeredScroller.value == false) {
+                        console.log('register scroll', chatMessagesBody.value);
+                        chatMessagesBody.value.addEventListener('scroll', handleScroll);
+                        registeredScroller.value = true;
+                    }
+                    scrollToBottom();
+                    focusInput();
+                });
+            }
+        }, { deep: true });
+
+        watch(messages, (val) => {
+            // console.log("message changed", val)
+        }, { immediate: true, deep: true });
+
 
         onMounted(() => {
+            messages.value = [];
+            queryCondition.value.page = 1;
+            getMessages();
             connect();
-            nextTick(() => {
-                focusInput();
-            });
+
         });
 
+        onUnmounted(() => {
+            if (chatMessagesBody.value) {
+                console.log('remove scroll', chatMessagesBody.value);
+                chatMessagesBody.value.removeEventListener('scroll', handleScroll);
+            }
+        });
+        const handleScroll = () => {
+            if (chatMessagesBody.value) {
+                const scrollTop = chatMessagesBody.value.scrollTop;
+                if (scrollTop === 0) {
+                    getMessages();
+                }
+            }
+        }
+        const queryFull = ref(false);
+        const queryCondition = ref({
+            page: 1,
+            page_size: 10,
+            ts: null,
+            site_key: Cookies.get('bibirchat_site_key') ?? 'pbAuq7PVr2gh2jp',
+            room_key: Cookies.get('bibirchat_ukey') ?? '0QsXuCkekVFG2cP'
+        });
+        const getMessages = () => {
+            // messages.value = [];
+            if (queryFull.value == true) {
+                return;
+            }
+            loadMessages(queryCondition.value).then(res => {
+                let size = res.data?.data?.length;
+                res.data?.data?.forEach((item: any) => {
+                    item.text = item.content;
+                    item.time = item.create_at;
+                    item.files = item.str_files
+                        ? JSON.parse(item.str_files)
+                        : [];
+                    item.user = item.user_id == null;
+
+                    messages.value.unshift(item);
+                });
+                queryCondition.value.page++;
+                queryCondition.value.ts = res.data?.ts;
+                if (size && size < queryCondition.value.page_size) {
+                    messages.value.unshift({
+                        text: "",
+                        time: new Date().toLocaleString(),
+                        user: false,
+                        user_name: "",
+                        files: [],
+                        notify: "所有消息加载完成"
+                    });
+                    queryFull.value = true;
+                }
+                // console.log("load messages:", res);
+            }).catch(e => {
+                console.log("error happended:", e)
+            });
+        }
         const websocketService = new WebSocketService();
         const connect = () => {
             const ukey = Cookies.get('bibirchat_ukey') ?? '0QsXuCkekVFG2cP';// for test
@@ -177,15 +259,8 @@ export default defineComponent({
             websocketService.connect(url);
             websocketService.onMessage((data) => {
                 console.log(data)
-                messages.value.push({
-                    text: data
-                    , time: new Date().toLocaleString()
-                    , user: false
-                    , userName: ''
-                    , fileName: ''
-                    , files: []
-                    , notify: ''
-                });
+                const jsonData = JSON.parse(data);
+                messages.value.push(jsonData);
                 scrollToBottom();
             });
             websocketService.onClose(() => {
@@ -197,26 +272,27 @@ export default defineComponent({
         };
 
         const sendMessage = () => {
-            if (newMessage.value.trim()) {
-                if (websocketService) {
-                    const to_server = {
-                        content: newMessage.value.trim()
-                    };
-                    websocketService.sendMessage(JSON.stringify(to_server));
-                }
-                messages.value.push({
-                    text: newMessage.value,
-                    time: new Date().toLocaleTimeString(),
-                    user: true,
-                    userName: '',
-                    fileName: '',
-                    files: [],
-                    notify: ''
-                });
-
-                newMessage.value = '';
+            let mess = {
+                text: newMessage.value,
+                content: newMessage.value,
+                time: new Date().toLocaleString(),
+                user: true,
+                user_name: "",
+                str_files: JSON.stringify(myFiles.value),
+                files: myFiles.value,
+                notify: "",
+                // room_id: props.roomId
+            };
+            if (mess.text !== "" || (mess.files && mess.files.length > 0)) {
+                websocketService.sendMessage(JSON.stringify(mess));
+                messages.value.push(mess);
+                newMessage.value = "";
+                myFiles.value = [];
+                pondFiles.value = [];
+                pondVisiable.value = false;
                 scrollToBottom();
                 focusInput();
+                console.log(messages.value);
             }
         };
 
@@ -239,16 +315,33 @@ export default defineComponent({
             // console.log("isEmojiPickerVisible:", isEmojiPickerVisible.value, "pondVisiable:", pondVisiable.value)
         };
 
-        const chatMessage = ref<HTMLElement | null>(null);
+
         // 滚动到底部的方法
         const scrollToBottom = () => {
-            if (!chatMessage.value) {
+            if (!chatMessagesBody.value) {
                 return;
             }
             nextTick(() => {
-                chatMessage.value!.scrollTop = chatMessage.value!.scrollHeight;
+                chatMessagesBody.value!.scrollTop = chatMessagesBody.value!.scrollHeight;
             });
         };
+
+        let previousScrollHeight = 0;
+        onBeforeUpdate(() => {
+            // 在更新之前记录滚动条位置
+            if (chatMessagesBody.value) {
+                previousScrollHeight = chatMessagesBody.value.scrollHeight;
+            }
+        });
+
+        onUpdated(() => {
+            // 在更新之后调整滚动条位置
+            if (chatMessagesBody.value) {
+                chatMessagesBody.value.scrollTop +=
+                    chatMessagesBody.value.scrollHeight - previousScrollHeight;
+            }
+        });
+
 
         watch(() => props.isOpen, (newValue, _) => {
             if (newValue) {
@@ -283,6 +376,38 @@ export default defineComponent({
             downloadFile(url, name);
         }
 
+        const handleAddFile = (error, file: File) => {
+            // console.log("file add:", error, file);
+            if (error === null && file !== undefined) {
+                let file2 = JSON.parse(file.serverId);
+                let file3 = file2?.data?.entry?.files[0];
+                file3.id = file.id;
+                console.log("after:", file3, myFiles.value);
+                myFiles.value.push(file3);
+            }
+        };
+
+        const handleRemoveFile = (e, file: File) => {
+            // console.log("file remove:", e, file);
+            // let file2 = JSON.parse(file.serverId);
+            let fileId = file?.id;
+            // let file3 = file2?.data?.entry?.files[0];
+            if (fileId && myFiles && myFiles.value.length > 0) {
+                // console.log("remove file3:", fileId, myFiles.value);
+                console.log(
+                    "remove file3 after:",
+                    myFiles.value.filter(f => f.id !== fileId)
+                );
+                myFiles.value = myFiles.value.filter(f => f.id !== fileId);
+            }
+        };
+
+        const handleStartAddFile = (e, file: File) => {
+            let file2 = JSON.parse(file.serverId);
+            let file3 = file2?.data?.entry?.files[0];
+            // console.log("file start:", e, file, file3, myFiles.value);
+        };
+
         return {
             currentTime,
             newMessage,
@@ -291,7 +416,7 @@ export default defineComponent({
             closeModal,
             toggleEmojiPicker,
             addEmoji,
-            chatMessage,
+            chatMessagesBody,
             scrollToBottom,
             messageInputRef,
             focusInput,
@@ -300,6 +425,7 @@ export default defineComponent({
             showPicker,
             pickerShow,
             myFiles,
+            pondFiles,
             // handleFilePondInit,
             appendFiles,
             pondVisiable,
@@ -308,7 +434,10 @@ export default defineComponent({
             openImagePreview,
             previewImgSrc,
             previewVisible,
-            toDownload
+            toDownload,
+            handleAddFile,
+            handleRemoveFile,
+            handleStartAddFile
         };
     },
 });
@@ -511,7 +640,7 @@ export default defineComponent({
 
 .message-files {
     height: 100px;
-    width: calc(33.33% - 0.5em);
+    width: calc(33.33% - 10em);
     display: inline;
     list-style: none;
     padding: 0;
@@ -519,7 +648,7 @@ export default defineComponent({
 
     img {
         height: 100px;
-        width: 100px;
+        width: 97px;
         padding: 3px;
     }
 

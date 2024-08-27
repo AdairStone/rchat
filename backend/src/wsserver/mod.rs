@@ -1,4 +1,4 @@
-use std::{ops::Deref, time::Instant};
+use std::time::Instant;
 
 use actix::Addr;
 use actix_web::{error, web, Error, HttpRequest, HttpResponse};
@@ -24,8 +24,8 @@ pub async fn chat_route(
     let key = if query_params.get("site_key").is_some() {  query_params.get("site_key").unwrap() } else { return Err(error::ErrorBadRequest("site key must provied"));};
     let client = if query_params.get("client").is_some() {  query_params.get("client").unwrap() } else { return Err(error::ErrorBadRequest("client must provied"));};
     let mut user: Option<User> = None;
-    let mut name: Option<String> = None;
-    let mut room_key = query_params.get("room_key").map(|el| el.clone());
+    let name: Option<String> = None;
+    let room_key = query_params.get("room_key").map(|el| el.clone());
     let mut room = ChatRoom::default();
     let mut user_type = 0 as usize;
     tracing::info!("join chat with:{}", client);
@@ -54,11 +54,15 @@ pub async fn chat_route(
         }
         if room_key.is_none() { return Err(error::ErrorBadRequest("room_key must provied")); }
         room = match ChatRoom::find_one::<ChatRoom>(&Query::from_entry("room_key", room_key.clone().unwrap().to_string())).await {
-            Ok(ro) => if ro.is_some() { ro.unwrap() } else { return Err(error::ErrorBadRequest("token session invalid")); },
+            Ok(ro) => if ro.is_some() { ro.unwrap() } else { 
+                // return Err(error::ErrorBadRequest("room not found"));
+                tracing::info!("room not found, create none default.");
+                ChatRoom::default()
+            },
             Err(e) =>  return Err(error::ErrorBadRequest(e)) ,
         };
         user_type = 0;
-    } else {
+    } else if client == "1" {// 客户端
         room = match ChatService::new_room(key.clone(), room_key).await {
             Ok(ro) => if ro.is_some() { ro.unwrap() } else { return Err(error::ErrorBadRequest("chat start error for not created"));},
             Err(e) =>  {
