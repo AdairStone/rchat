@@ -1,11 +1,13 @@
 <template>
     <div v-if="isOpen" class="modal box" @keydown="handleKeydown">
         <div class="modal-content">
-            <span v-if="closeable" class="close" @click="closeModal">&times;</span>
+            <span v-if="closeable" class="close" @click="closeModal">
+                <Icon icon="icon-park-outline:close-one" width="35" height="35" style="color: #ffffff" />
+            </span>
             <div class="chat-header">
-                <div class="chat-title">adabibi.com客服服务</div>
-                <div class="chat-time">{{ currentTime }}</div>
-                <div class="chat-notify">adabibi.com智能客服为您提供服务</div>
+                <div class="chat-title">{{ siteInfo.title }}</div>
+                <div class="chat-time">{{ siteInfo.start }}</div>
+                <div class="chat-notify">{{ siteInfo.welcome_slogan }}</div>
             </div>
             <div ref="chatMessagesBody" class="chat-messages">
                 <div v-for="(message, index) in messages" :key="index">
@@ -91,7 +93,7 @@ import 'filepond-plugin-image-preview/dist/filepond-plugin-image-preview.min.css
 import { formatDateTime, isImagePath, isVideoUrl, downloadFile } from '@/utils/commonUtil';
 import ImagePreview from './ImagePreview.vue'
 import { WebSocketService } from '@/utils/websocketService';
-import { loadMessages } from '@/api/chat';
+import { loadMessages, loadSite } from '@/api/chat';
 
 const FilePond = vueFilePond(FilePondPluginFileValidateType, FilePondPluginImagePreview);
 
@@ -187,9 +189,9 @@ export default defineComponent({
         onMounted(() => {
             messages.value = [];
             queryCondition.value.page = 1;
+            handleLoadSiteInfo();
             getMessages();
             connect();
-
         });
 
         onUnmounted(() => {
@@ -260,6 +262,9 @@ export default defineComponent({
             websocketService.onMessage((data) => {
                 console.log(data)
                 const jsonData = JSON.parse(data);
+                if (jsonData.str_files) {
+                    jsonData.files = JSON.parse(jsonData.str_files);
+                }
                 messages.value.push(jsonData);
                 scrollToBottom();
             });
@@ -408,6 +413,22 @@ export default defineComponent({
             // console.log("file start:", e, file, file3, myFiles.value);
         };
 
+        const siteInfo = ref({
+            position: '',
+            welcome_slogan: '',
+            title: '',
+            start: '',
+        });
+
+        const handleLoadSiteInfo = () => {
+            loadSite({ "site_key": queryCondition.value.site_key }).then(res => {
+                console.log("loadSiteInfo:", res);
+                siteInfo.value = res.data
+            }).catch(e => {
+                console.log(e)
+            })
+        }
+
         return {
             currentTime,
             newMessage,
@@ -437,7 +458,9 @@ export default defineComponent({
             toDownload,
             handleAddFile,
             handleRemoveFile,
-            handleStartAddFile
+            handleStartAddFile,
+            handleLoadSiteInfo,
+            siteInfo
         };
     },
 });

@@ -6,13 +6,13 @@ use futures::sink::Send;
 use rand::{rngs::ThreadRng, Rng};
 use std::collections::{HashMap, HashSet};
 use tokio::{sync::oneshot, task};
-use zino::prelude::{DateTime, ModelAccessor};
+use zino::prelude::{DateTime, ModelAccessor, Query};
 use zino_core::orm::Schema;
 
 use crate::{
     dto::chat_message_entity::{ChatMessageDto, ChatNotify, ChatNotifyMessageDto},
-    model::ChatMessage,
-    service::room_message_state::MessageStatusManager,
+    model::{ChatMessage, ChatRoom},
+    service::{chat_service::ChatService, room_message_state::MessageStatusManager},
 };
 
 use super::session::WsChatSession;
@@ -108,7 +108,7 @@ impl ChatServer {
         self.site_rooms
             .entry(room_site.to_string())
             .or_default()
-            .insert(room_site.to_string());
+            .insert(room.to_string());
         id
     }
 }
@@ -129,7 +129,7 @@ impl ChatServer {
 
     /// 给服务人员发送消息
     fn send_server_message(&self, site_key: &str, message: &str) {
-        if let Some((room,addr)) = self.server_sessions.get(site_key) {
+        if let Some((room, addr)) = self.server_sessions.get(site_key) {
             addr.do_send(Message(message.to_owned()));
         }
     }
@@ -147,8 +147,10 @@ impl Handler<Connect> for ChatServer {
         let user = msg.session.user;
         tracing::info!("{:?} joined {}", &user, &msg.room);
         if user.is_some() {
-            self.server_sessions
-                .insert(msg.session.site_key.clone(), (msg.room.clone(), msg.addr.clone()));
+            self.server_sessions.insert(
+                msg.session.site_key.clone(),
+                (msg.room.clone(), msg.addr.clone()),
+            );
         }
         let room: &String = &msg.room;
         let id = self.add_room(&msg.session.site_key, room, msg.addr);
@@ -193,10 +195,17 @@ impl Handler<Disconnect> for ChatServer {
                 let rooms_set_cloned = rooms_set.clone();
                 let site_key_clone = site_key.clone();
                 let task = async move {
-                    if let Err(e) = MessageStatusManager::set_site_rooms(&site_key_clone, &rooms_set_cloned).await {
+                    if let Err(e) =
+                        MessageStatusManager::set_site_rooms(&site_key_clone, &rooms_set_cloned)
+                            .await
+                    {
                         tracing::error!("Update redis site:{} rooms error: {}", &site_key_clone, e);
                     } else {
-                        tracing::info!("Update redis site:{} rooms:{:?}", &site_key_clone, &rooms_set_cloned);
+                        tracing::info!(
+                            "Update redis site:{} rooms:{:?}",
+                            &site_key_clone,
+                            &rooms_set_cloned
+                        );
                     }
 
                     if let Err(e) = chat_room.update().await {
@@ -214,23 +223,28 @@ impl Handler<Disconnect> for ChatServer {
 /// Handler for Message message.
 impl Handler<ClientMessage> for ChatServer {
     type Result = ();
-
     fn handle(&mut self, msg: ClientMessage, context: &mut Context<Self>) {
         // 发送前保存
         tracing::info!("ClientMessage: {:?}", &msg);
         let site_key = msg.session.site_key.clone();
         let str_files = msg.mess.str_files.clone();
-        let s_session  = self.server_sessions.get(&site_key).clone();
+        let s_session = self.server_sessions.get(&site_key).clone();
         tracing::info!("server_sessions: {:?}", &s_session);
-        let s_in_room = if s_session.is_some() {s_session.unwrap().0 == msg.room} else {false};
+        let s_in_room = if s_session.is_some() {
+            s_session.unwrap().0 == msg.room
+        } else {
+            false
+        };
         let (tx, mut rx) = oneshot::channel::<String>();
         let room_id = msg.id.clone();
+        let room_key = msg.room.clone();
         // 异步任务
         let fut = async move {
             if s_in_room {
                 tracing::info!("send_message");
                 let _ = tx.send("send_message".to_string());
             } else {
+                let _ = MessageStatusManager::increase_latest_count(&site_key, &room_key, 1).await;
                 // 不在房间，发送通知
                 let notify_message = ChatNotify::new_from_redis(&site_key).await;
                 match serde_json::to_string(&notify_message) {
@@ -257,13 +271,19 @@ impl Handler<ClientMessage> for ChatServer {
                             tracing::info!("msg.session: {:?}", &msg.session);
                             // let str_files = msg.mess.str_files.as_ref().map(|s| s.clone());
                             let user_name = msg.session.user.as_ref().map(|u| u.name().to_string());
-                            let message_data = ChatMessageDto::new_text_str_files_msg(&msg.msg, str_files, msg.session.user.is_none(), user_name, Some(msg.room.clone()));
+                            let message_data = ChatMessageDto::new_text_str_files_msg(
+                                &msg.msg,
+                                str_files,
+                                msg.session.user.is_none(),
+                                user_name,
+                                Some(msg.room.clone()),
+                            );
                             let json = match serde_json::to_string(&message_data) {
                                 Ok(s) => s,
                                 Err(e) => {
                                     tracing::error!("message handle error: {:?}", e);
                                     "".to_string()
-                                },
+                                }
                             };
                             tracing::info!("real send_message: {}: {}", &rs, &json);
                             act.send_message(&msg.room, json.as_str(), room_id);
@@ -299,12 +319,13 @@ impl Handler<ListRooms> for ChatServer {
 /// send join message to new room
 impl Handler<Join> for ChatServer {
     type Result = ();
-    fn handle(&mut self, msg: Join, _: &mut Context<Self>) {
+    fn handle(&mut self, msg: Join, context: &mut Context<Self>) {
         let Join {
             id,
             room_id,
             session,
         } = msg;
+        let site_key = session.site_key.clone();
         let mut rooms = Vec::new();
         for (n, sessions) in &mut self.rooms {
             if sessions.remove(&id) {
@@ -315,26 +336,66 @@ impl Handler<Join> for ChatServer {
         let user = session.user;
         tracing::info!("{:?} joined {}", &user, &room_id);
         if user.is_some() {
-            if let Some((room, _addr)) = self.server_sessions.get_mut(&session.site_key.clone()) {
+            if let Some((room, _addr)) = self.server_sessions.get_mut(&site_key) {
                 *room = room_id.clone();
             }
-
         }
 
         self.rooms.entry(room_id.clone()).or_default().insert(id);
 
         // 发起服务通知
         let from_user = user.is_none();
-        if !from_user {// 管理端加入
+        if !from_user {
+            // 管理端加入
             let user_name = user.as_ref().map(|u| u.name().to_string().clone());
             let msg = ChatMessageDto::new_notify_msg(
                 &format!("{} 为你提供服务", &user_name.clone().unwrap_or_default()),
                 from_user,
                 user_name,
-                Some(room_id.clone())
+                Some(room_id.clone()),
             );
             let msg_str = serde_json::to_string(&msg).unwrap();
             self.send_message(&room_id, &msg_str, id);
         }
+
+        let (tx, mut rx) = oneshot::channel::<String>();
+        let sk_clone = site_key.clone();
+        let room_key = room_id.clone();
+        let fut = async move {
+            let query = Query::from_entry("id", room_key.clone());
+            if let Ok(chat_room) = ChatRoom::find_one::<ChatRoom>(&query).await {
+                if let Some(cr) = chat_room {
+                    let _r = ChatService::join_room(&cr).await;
+                    // 加入之后 更新房间消息
+                    let notify_message = ChatNotify::new_from_redis(&site_key).await;
+                    match serde_json::to_string(&notify_message) {
+                        Ok(notify_json) => {
+                            tracing::info!("send notify: {}", &notify_json);
+                            let _ = tx.send(notify_json);
+                        }
+                        Err(e) => {
+                            tracing::warn!("message save error: {:?}", e);
+                            let _ = tx.send("error".to_string());
+                        }
+                    }
+                } else {
+                    let _ = tx.send("error".to_string());
+                }
+            } else {
+                let _ = tx.send("error".to_string());
+            }
+            
+        }
+        .into_actor(self)
+        .map(move |result, act, _ctx| {
+            if let Ok(rs) = rx.try_recv() {
+                if "error" != &rs {
+                    act.send_server_message(&sk_clone, &rs);
+                } else {
+                    tracing::warn!("send notify error and ignore");
+                }
+            }
+        });
+        context.spawn(fut);
     }
 }

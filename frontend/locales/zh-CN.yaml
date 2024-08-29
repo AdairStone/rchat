@@ -68,7 +68,7 @@ menus:
   purePermission: 权限管理
   purePermissionPage: 页面权限
   purePermissionButton: 按钮权限
-  chatList: 聊天窗口
+  chatList: 会话列表
   chatSummary: 客服数据
 status:
   pureLoad: 加载中...

@@ -52,6 +52,7 @@ import VueTippy from "vue-tippy";
 app.use(VueTippy);
 
 import * as ElementPlusIconsVue from "@element-plus/icons-vue";
+import { useWebsocketService } from "./utils/websocketService";
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component);
 }
@@ -64,5 +65,6 @@ getPlatformConfig(app).then(async config => {
   app.use(MotionPlugin).use(useI18n).use(useElementPlus).use(Table);
   // .use(PureDescriptions)
   // .use(useEcharts);
+  useWebsocketService();
   app.mount("#app");
 });

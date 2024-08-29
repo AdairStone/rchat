@@ -1,10 +1,10 @@
-use std::time::Instant;
+use std::{collections::HashMap, time::Instant};
 
 use actix::Addr;
 use actix_web::{error, web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
-use zino::Request;
-use zino_core::{auth::{JwtClaims, UserSession}, model::Query, orm::Schema, Uuid};
+use zino::{prelude::ExtractRejection, Request};
+use zino_core::{auth::{JwtClaims, UserSession}, json, model::Query, orm::Schema, Uuid};
 use zino_model::User;
 
 use crate::{model::ChatRoom, service::chat_service::ChatService};
@@ -71,6 +71,15 @@ pub async fn chat_route(
             },
         };
         user_type = 1;
+        room.client_info = Some(parser_client_info(&req)?);
+        let room_clone = room.clone();
+        match room_clone.update().await {
+            Ok(_q) => (),
+            Err(e) => {
+                tracing::error!("update room client info error:{}", e);
+                return Err(error::ErrorInternalServerError(format!("update room client info error::{}",e)));
+            },
+        };
     }
     tracing::info!("join room: {:?} user：{:?} ", &room, &user);
     // todo 收集一些远端信息 ip domian client agent
@@ -107,4 +116,26 @@ fn get_token(req: &HttpRequest) -> Result<Option<String>, Error> {
         return Ok(None);
     }
     Ok(Some(token.to_string()))
+}
+
+fn parser_client_info(req: &HttpRequest) -> Result<String, Error> {
+    let mut client_info = HashMap::new();
+    if let Some(user_agent) = req.headers().get("User-Agent"){
+        client_info.insert("user_agent", user_agent.to_str().unwrap_or(""));
+    } else {
+        client_info.insert("user_agent", "");
+    }
+    let con = req.connection_info();
+    let ip = con.realip_remote_addr().unwrap_or("");
+    let proxy_ip = req.headers().get("X-Forwarded-For");
+    if let Some(proxy) = proxy_ip {
+        let p = proxy.to_str().unwrap_or("");
+        if ""  != p  {
+            let ips: Vec<&str> = p.split(",|\\s").collect();
+            client_info.insert("ip", ips[0].trim());
+        }
+    } else {
+        client_info.insert("ip", ip);
+    }
+    Ok(json!(client_info).to_string())
 }

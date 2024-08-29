@@ -12,3 +12,14 @@ export const loadMessages = async (payload: any) => {
         throw error;
     }
 };
+
+export const loadSite = async (payload: any) => {
+    try {
+        const response = await apiClient.post('/load/site', payload);
+        return response;
+    } catch (error) {
+        console.error('Error posting data:', error);
+        throw error;
+    }
+};
+

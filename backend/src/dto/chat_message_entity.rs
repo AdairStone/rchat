@@ -1,8 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
+use chrono::Duration;
 use serde::{Deserialize, Serialize};
+use zino::prelude::{DateTime, Query, Schema};
+use zino_core::json;
 
-use crate::{service::room_message_state::MessageStatusManager, utils::date_utils::{current_date, date_ymdhms, format_date_ymdhms}};
+use crate::{model::{ChatRoom, ChatWebsite}, service::room_message_state::MessageStatusManager, utils::date_utils::{current_date, date_ymdhms, format_date_ymdhms}};
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct ChatMessageDto {
@@ -92,15 +95,24 @@ pub struct ChatNotifyMessageDto {
 impl ChatNotify {
     pub async fn new_from_redis(site_key: &str) -> Self {
         let total_unread = MessageStatusManager::get_total_unread(site_key).await.unwrap_or(0);
-        
-        let room_set = MessageStatusManager::get_site_rooms(site_key).await.unwrap_or(HashSet::new());
-        tracing::info!("site {} room_set: {:?}", &site_key, &room_set);
+        // let room_set = MessageStatusManager::get_site_rooms(site_key).await.unwrap_or(HashSet::new());
         let mut room_counts: HashMap<String,i32> = HashMap::new();
-        for room_id in room_set.iter() {
-            let (unread_counts, _) = MessageStatusManager::get_room_message_counts(site_key, room_id).await.unwrap_or((0,0));
-            room_counts.insert(room_id.clone(), unread_counts as i32);
+        let query = Query::from_entry("site_key", site_key);
+        if let Ok(site)  = ChatWebsite::find_one::<ChatWebsite>(&query).await {
+            if let Some(s) = site {
+                let mut rooms_query = Query::from_entry("room_site_id", s.id.to_string());
+                rooms_query.add_filter("status", "active");
+                let date = current_date() - Duration::hours(24);
+                rooms_query.add_filter("update_at", json!({"$gt": date}));
+                if let Ok(rooms) = ChatRoom::find::<ChatRoom>(&rooms_query).await{
+                    tracing::info!("site {} room_set: {:?}", &site_key, &rooms);
+                    for room in rooms.iter() {
+                        let (unread_counts, _) = MessageStatusManager::get_room_message_counts(site_key, &room.id.to_string()).await.unwrap_or((0,0));
+                        room_counts.insert(room.id.to_string(), unread_counts as i32);
+                    }
+                }
+            }
         }
-
         let message = ChatNotifyMessageDto {
             total_unread: total_unread as i32,
             new_message: true,

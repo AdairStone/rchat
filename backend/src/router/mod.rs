@@ -140,5 +140,7 @@ fn chat_outer_router(cfg: &mut ServiceConfig) {
             .route("/messages", post().to(chat_ctl::list_chatmessage_from_chat))
             .route("/upload", post().to(file_ctl::upload))
             .route("/upload", delete().to(file_ctl::delete_file))
+            .route("/site", post().to(chat_ctl::load_site))
+            
     );
 }

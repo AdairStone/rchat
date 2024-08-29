@@ -32,6 +32,7 @@ pub struct ChatRoom {
         comment = "room ownner"
     )]
     pub room_site_id: Uuid,
+    pub client_info: Option<String>,
     #[serde(serialize_with = "serialize_datetime_with_timezone")]
     #[schema(read_only, default_value = "now", index_type = "btree")]
     pub create_at: DateTime,

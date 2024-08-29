@@ -10,3 +10,4 @@ pub(crate) use chat_room::ChatRoom;
 pub(crate) use chat_website::ChatWebsite;
 pub(crate) use tag::Tag;
 pub mod chat_files;
+pub mod ip_detail;

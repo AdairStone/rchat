@@ -22,7 +22,7 @@ import globalization from "@/assets/svg/globalization.svg?component";
 import Lock from "@iconify-icons/ri/lock-fill";
 import Check from "@iconify-icons/ep/check";
 import User from "@iconify-icons/ri/user-3-fill";
-import { websocketService } from "@/utils/websocketService";
+import { useWebsocketService } from "@/utils/websocketService";
 
 defineOptions({
   name: "Login"
@@ -45,7 +45,7 @@ const ruleForm = reactive({
   username: "",
   password: ""
 });
-
+const websocketService = useWebsocketService();
 const onLogin = async (formEl: FormInstance | undefined) => {
   if (!formEl) return;
   await formEl.validate((valid, fields) => {

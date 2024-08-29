@@ -11,6 +11,7 @@ import LaySidebarLogo from "../lay-sidebar/components/SidebarLogo.vue";
 import LaySidebarItem from "../lay-sidebar/components/SidebarItem.vue";
 import LaySidebarLeftCollapse from "../lay-sidebar/components/SidebarLeftCollapse.vue";
 import LaySidebarCenterCollapse from "../lay-sidebar/components/SidebarCenterCollapse.vue";
+import { useMessagesStore } from "@/store/modules/messages";
 
 const route = useRoute();
 const isShow = ref(false);
@@ -71,7 +72,6 @@ watch(
     menuSelect(route.path);
   }
 );
-
 onMounted(() => {
   getSubMenuData();
 

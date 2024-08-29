@@ -210,25 +210,25 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                             None => None,
                         };
 
-                        let room_id = mess.clone().room_id.clone().to_string();
-                        let site = self.site_key.clone();
-                        let from_server = self.user.is_some();// 来自服务
-                        let r = async move {
-                            if !from_server{
-                                MessageStatusManager::increase_latest_count(&site, room_id.as_str(), 1)
-                                .await
-                            } else {
-                                Ok(())    
-                            }
-                        }
-                        .into_actor(self)
-                        .map(|result, _act, _ctx| match result {
-                            Ok(_r) => (),
-                            Err(e) => {
-                                tracing::warn!("message save error: {:?}", e);
-                            }
-                        });
-                        ctx.spawn(r);
+                        // let room_id = mess.clone().room_id.clone().to_string();
+                        // let site = self.site_key.clone();
+                        // let from_server = self.user.is_some();// 来自服务
+                        // let r = async move {
+                        //     if !from_server{
+                        //         MessageStatusManager::increase_latest_count(&site, room_id.as_str(), 1)
+                        //         .await
+                        //     } else {
+                        //         Ok(())    
+                        //     }
+                        // }
+                        // .into_actor(self)
+                        // .map(|result, _act, _ctx| match result {
+                        //     Ok(_r) => (),
+                        //     Err(e) => {
+                        //         tracing::warn!("message save error: {:?}", e);
+                        //     }
+                        // });
+                        // ctx.spawn(r);
 
                         self.addr.do_send(server::ClientMessage {
                             id: self.id,

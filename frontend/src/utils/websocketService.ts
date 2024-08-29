@@ -1,7 +1,8 @@
-import { onUnmounted, reactive } from "vue";
+import { onUnmounted } from "vue";
 import { getToken } from "./auth";
 import { useChatSiteStore } from "@/store/modules/site";
 import { sendNewMessageNotification } from "./browserNotify";
+import { useMessagesStore } from "@/store/modules/messages";
 
 interface ChatNotifyMessageDto {
   total_unread: number; // 对应 Rust 中的 i32
@@ -18,6 +19,7 @@ export interface ChatMessageDto {
   time: string;
   user: boolean;
   user_name?: string;
+  str_files?: string;
   files: ChatMessageFileDto[];
   notify: string;
   to_server?: boolean;
@@ -35,17 +37,8 @@ class WebsocketService {
   private readonly TIMEOUT_DURATION = 7 * 24 * 60 * 60 * 1000; // 3分钟
   private readonly CHECK_INTERVAL = 10 * 1000; // 1 minute
 
-  public messages = reactive<Record<string, ChatMessageDto[]>>({});
-  public server_notify = reactive<ChatMessageDto>({
-    text: "",
-    time: "",
-    user: false,
-    files: [],
-    notify: ""
-  });
-
+  private messagesStore = useMessagesStore();
   constructor() {
-    // this.loadMessagesFromStorage();
     try {
       // this.connect();
     } catch (e) {
@@ -97,41 +90,21 @@ class WebsocketService {
   }
 
   public handleMessage(message: ChatMessageDto) {
-    // console.log("Message received:", message);
+    // console.log("handleMessage:", message);
     if (message.to_server) {
-      this.server_notify = message;
+      this.messagesStore.serverNotify = message;
       sendNewMessageNotification(JSON.stringify(message));
     } else {
-      const { room_id } = message;
-      if (!this.messages[room_id]) {
-        this.messages[room_id] = [];
-      }
-      this.messages[room_id].push(message);
-      // localStorage.setItem(
-      //   `room_${room_id}`,
-      //   JSON.stringify(this.messages[room_id])
-      // );
+      this.messagesStore.addMessage(message);
     }
   }
 
   public handleAddFirstMessage(message: ChatMessageDto) {
-    if (message.to_server) {
-      this.server_notify = message;
-    } else {
-      const { room_id } = message;
-      if (!this.messages[room_id]) {
-        this.messages[room_id] = [];
-      }
-      this.messages[room_id].unshift(message);
-    }
+    this.messagesStore.handleAddFirstMessage(message);
   }
 
   public resetMessage(room_id: string) {
-    this.messages[room_id] = [];
-    // localStorage.setItem(
-    //   `room_${room_id}`,
-    //   JSON.stringify(this.messages[room_id])
-    // );
+    this.messagesStore.resetMessage(room_id);
   }
 
   private resetTimeout(): void {
@@ -237,7 +210,14 @@ class WebsocketService {
   //   });
   // }
 }
-export const websocketService = new WebsocketService();
-onUnmounted(() => {
-  websocketService.close();
-});
+let websocketService: WebsocketService | null = null;
+
+export function useWebsocketService(): WebsocketService {
+  if (!websocketService) {
+    websocketService = new WebsocketService();
+  }
+  // onUnmounted(() => {
+  //   websocketService?.close();
+  // });
+  return websocketService;
+}

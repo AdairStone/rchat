@@ -15,8 +15,7 @@ import {
 } from "@/api/user";
 import { useMultiTagsStoreHook } from "./multiTags";
 import { type DataInfo, setToken, removeToken, userKey } from "@/utils/auth";
-import { websocketService } from "@/utils/websocketService";
-// import { websocketService } from "@/utils/websocketService";
+import { useWebsocketService } from "@/utils/websocketService";
 
 export const useUserStore = defineStore({
   id: "pure-user",
@@ -98,7 +97,7 @@ export const useUserStore = defineStore({
       removeToken();
       useMultiTagsStoreHook().handleTags("equal", [...routerArrays]);
       resetRouter();
-      websocketService.close();
+      useWebsocketService().close();
       router.push("/login");
     },
     /** 刷新`token` */

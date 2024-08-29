@@ -236,7 +236,7 @@ impl ChatService {
         query.add_filter("create_at", json!({"$le": start}));
         query.set_limit(page_num);
         query.set_offset((page - 1) * page_num);
-        Self::join_room(room).await?;
+        // Self::join_room(room).await?;
         tracing::info!("list messages condition: start:{}: {:?}", &start, &query);
         Ok(ChatMessage::find(&query).await?)
     }

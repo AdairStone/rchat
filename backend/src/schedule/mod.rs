@@ -10,7 +10,7 @@ pub fn job_scheduler() -> JobScheduler {
 
     let job = Job::new("0/20 * * * * *", job::every_20s as CronJob).max_ticks(3);
     scheduler.add(job);
-
+    
     scheduler
 }
 
@@ -20,5 +20,7 @@ pub fn async_job_scheduler() -> AsyncJobScheduler {
     let job = AsyncJob::new("0 0 * * * *", job::every_hour as AsyncCronJob).immediate(true);
     scheduler.add(job);
 
+    let job = AsyncJob::new("0/10 * * * * *", job::every_10s as AsyncCronJob);
+    scheduler.add(job);
     scheduler
 }

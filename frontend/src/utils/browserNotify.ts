@@ -1,3 +1,7 @@
+// import { useChatWindowStore } from "@/store/modules/chatWindow";
+
+import { useChatWindowStore } from "@/store/modules/chatWindow";
+
 let isNotificationActive = false;
 export function sendBrowserNotification(
   title: string,
@@ -40,7 +44,11 @@ export function sendBrowserNotification(
 }
 
 export function sendNewMessageNotification(message: string) {
-  sendBrowserNotification("你有新的消息", {
-    body: message
-  });
+  let chatwindowStore = useChatWindowStore();
+  console.log("chatwindowStore.isOpen", chatwindowStore.isOpen);
+  if (chatwindowStore.isOpen == false) {
+    sendBrowserNotification("你有新的消息", {
+      body: message
+    });
+  }
 }

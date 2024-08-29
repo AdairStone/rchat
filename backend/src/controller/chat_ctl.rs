@@ -16,7 +16,9 @@ use zino_core::{
     warn, Map, Uuid,
 };
 
+use crate::utils::date_utils::current_date;
 use crate::utils::date_utils::current_s;
+use crate::utils::date_utils::date_ymdhms;
 use crate::utils::str_from_map;
 use crate::utils::str_from_map_required;
 use crate::utils::str_to_usize;
@@ -262,12 +264,9 @@ pub async fn list_chatmessage(mut req: Request) -> Result {
 // rest for chat_front
 pub async fn list_chatmessage_from_chat(mut req: Request) -> Result {
     let body = req.parse_body::<Map>().await?;
-    
     let site_key = str_from_map_required("site_key", &body)?;
     let room_key = str_from_map_required("room_key", &body)?;
-    
     let query = Query::from_entry("site_key", site_key);
-    // query.add_filter("site_key", site_key);
     let chat_site = match ChatWebsite::find_one::<ChatWebsite>(&query).await {
         Ok(site) => {
             if site.is_some() {
@@ -279,7 +278,6 @@ pub async fn list_chatmessage_from_chat(mut req: Request) -> Result {
         Err(e) => return Err(Rejection::from_error(e).into()),
     };
 
-    // let mut room_query = Query::from_entry("id", room_key);
     let mut room_query = Query::from_entry("room_key", room_key);
     room_query.add_filter("room_site_id", chat_site.id.to_string());
     let room = match ChatRoom::find_one::<ChatRoom>(&room_query).await {
@@ -307,6 +305,31 @@ pub async fn list_chatmessage_from_chat(mut req: Request) -> Result {
     let mut res_map = HashMap::new();
     res_map.insert("data", json!(data));
     res_map.insert("ts", date.into());
+    res.set_json_data(json!(res_map));
+    res.set_code(StatusCode::OK);
+    Ok(res.clone().into())
+}
+
+pub async fn load_site(mut req: Request) -> Result {
+    let body = req.parse_body::<Map>().await?;
+    let site_key = str_from_map_required("site_key", &body)?;
+    let query = Query::from_entry("site_key", site_key);
+    let chat_site = match ChatWebsite::find_one::<ChatWebsite>(&query).await {
+        Ok(site) => {
+            if site.is_some() {
+                site.unwrap()
+            } else {
+                return Err(Rejection::from_error(warn!("room site not found")).into());
+            }
+        }
+        Err(e) => return Err(Rejection::from_error(e).into()),
+    };
+    let res = &mut Response::default().context(&req);
+    let mut res_map = HashMap::new();
+    res_map.insert("position", chat_site.position);
+    res_map.insert("welcome_slogan", chat_site.welcome_slogan);
+    res_map.insert("title", chat_site.title);
+    res_map.insert("start", Some(date_ymdhms(current_date())));
     res.set_json_data(json!(res_map));
     res.set_code(StatusCode::OK);
     Ok(res.clone().into())

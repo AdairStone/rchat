@@ -21,11 +21,24 @@ impl MessageStatusManager {
         Ok(())
     }
 
+    pub async fn reset_all_counts(site: &str) -> Result<()> {
+        // let latest_key = format!("site:{}:room:{}:latest_count", site, room_id);
+        // let total_key = format!("site:{}:room:{}:total_count", site, room_id);
+        let unread_key = format!("site:{}:total_unread", site);
+
+        // 增加最新消息数
+        // REDIS_MANAGER.set(&unread_key, 0 as isize).await?;
+        // // 增加总消息数
+        // REDIS_MANAGER.set(&site, 0 as isize).await?;
+        // 增加站点的总未读消息数
+        REDIS_MANAGER.set(&unread_key, 0 as isize).await?;
+        Ok(())
+    }
+
     // 重置房间的最新消息数
     pub async fn reset_latest_count(site: &str, room_id: &str) -> Result<()> {
         let latest_key = format!("site:{}:room:{}:latest_count", site, room_id);
         let unread_key = format!("site:{}:total_unread", site);
-
         // 获取最新消息数
         let latest_count: i64 = REDIS_MANAGER.get(&latest_key).await?.unwrap_or(0);
         // 减去总未读消息数中的最新消息数
@@ -58,6 +71,7 @@ impl MessageStatusManager {
     pub async fn set_site_rooms(site: &str, rooms: &HashSet<String>) -> Result<()> {
         let room_key = format!("site:{}:rooms", site);
         let val: Vec<String> = rooms.clone().into_iter().collect();
+        tracing::info!("set site rooms {:?}", &rooms);
         REDIS_MANAGER.set(&room_key, val.join(",")).await?;
         Ok(())
     }
@@ -65,7 +79,7 @@ impl MessageStatusManager {
     pub async fn get_site_rooms(site: &str) -> Result<HashSet<String>> {
         let room_key = format!("site:{}:rooms", site);
         let rooms: Option<String> = REDIS_MANAGER.get(&room_key).await?;
-        tracing::info!("rooms: {:?}", rooms);
+        tracing::info!("rooms: {}:{:?}", site,rooms);
         let mut hs = HashSet::<String>::new();
         if let Some(rs) = rooms {
             rs.split(",").for_each(|r| {
