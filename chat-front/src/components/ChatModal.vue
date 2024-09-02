@@ -78,7 +78,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, nextTick, watch, onMounted, onUnmounted, onBeforeUpdate, onUpdated } from 'vue';
+import { defineComponent, ref, nextTick, watch, onMounted, onUnmounted, onBeforeUpdate, onUpdated, Component } from 'vue';
 import Cookies from 'js-cookie';
 import { Icon } from '@iconify/vue';
 import { Picker as EmojiPicker, EmojiIndex } from "emoji-mart-vue-fast/src";
@@ -102,7 +102,7 @@ export default defineComponent({
     components: {
         Icon,
         EmojiPicker,
-        FilePond,
+        FilePond: FilePond as unknown as Component,
         ImagePreview
     },
     props: {
@@ -123,7 +123,7 @@ export default defineComponent({
 
         const currentTime = formatDateTime(new Date());
         const newMessage = ref('');
-        const messages = ref([
+        const messages = ref<any | null>([
         ]);
 
         const isEmojiPickerVisible = ref(false);
@@ -221,7 +221,7 @@ export default defineComponent({
             if (queryFull.value == true) {
                 return;
             }
-            loadMessages(queryCondition.value).then(res => {
+            loadMessages(queryCondition.value).then((res: any) => {
                 let size = res.data?.data?.length;
                 res.data?.data?.forEach((item: any) => {
                     item.text = item.content;
@@ -381,7 +381,7 @@ export default defineComponent({
             downloadFile(url, name);
         }
 
-        const handleAddFile = (error, file: File) => {
+        const handleAddFile = (error: any, file: any) => {
             // console.log("file add:", error, file);
             if (error === null && file !== undefined) {
                 let file2 = JSON.parse(file.serverId);
@@ -392,7 +392,7 @@ export default defineComponent({
             }
         };
 
-        const handleRemoveFile = (e, file: File) => {
+        const handleRemoveFile = (e: any, file: any) => {
             // console.log("file remove:", e, file);
             // let file2 = JSON.parse(file.serverId);
             let fileId = file?.id;
@@ -401,15 +401,15 @@ export default defineComponent({
                 // console.log("remove file3:", fileId, myFiles.value);
                 console.log(
                     "remove file3 after:",
-                    myFiles.value.filter(f => f.id !== fileId)
+                    myFiles.value.filter((f: any) => f.id !== fileId)
                 );
-                myFiles.value = myFiles.value.filter(f => f.id !== fileId);
+                myFiles.value = myFiles.value.filter((f: any) => f.id !== fileId);
             }
         };
 
-        const handleStartAddFile = (e, file: File) => {
-            let file2 = JSON.parse(file.serverId);
-            let file3 = file2?.data?.entry?.files[0];
+        const handleStartAddFile = (e: any, file: any) => {
+            // let file2 = JSON.parse(file?.serverId);
+            // let file3 = file2?.data?.entry?.files[0];
             // console.log("file start:", e, file, file3, myFiles.value);
         };
 
@@ -421,7 +421,7 @@ export default defineComponent({
         });
 
         const handleLoadSiteInfo = () => {
-            loadSite({ "site_key": queryCondition.value.site_key }).then(res => {
+            loadSite({ "site_key": queryCondition.value.site_key }).then((res: any) => {
                 console.log("loadSiteInfo:", res);
                 siteInfo.value = res.data
             }).catch(e => {

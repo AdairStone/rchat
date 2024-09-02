@@ -33,7 +33,8 @@ export default defineConfig({
     },
   },
   build: {
-    target: 'esnext',
+    target: 'es2015',
+    sourcemap: false,
     outDir: 'dist',
     rollupOptions: {
       output: {
@@ -48,14 +49,4 @@ export default defineConfig({
       },
     },
   },
-  // server: {
-  //   proxy: {
-  //     // 代理 '/api' 到 'http://localhost:3000/api'
-  //     '/ws': {
-  //       target: 'http://localhost:8080',
-  //       changeOrigin: true,
-  //       rewrite: (path) => path.replace(/^\/api/, '')
-  //     }
-  //   }
-  // }
 })

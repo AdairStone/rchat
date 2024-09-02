@@ -14,7 +14,6 @@ import NProgress from "../progress";
 import { getToken, formatToken } from "@/utils/auth";
 import { useUserStoreHook } from "@/store/modules/user";
 import { message } from "@/utils/message";
-import { resolve } from "path";
 
 // 相关配置请参考：www.axios-js.com/zh-cn/docs/#axios-request-config-1
 const defaultConfig: AxiosRequestConfig = {
@@ -75,15 +74,17 @@ class PureHttp {
           return config;
         }
         /** 请求白名单，放置一些不需要`token`的接口（通过设置请求白名单，防止`token`过期后再请求造成的死循环问题） */
-        const whiteList = ["/api/auth/refresh","/api/auth/login"];
+        const whiteList = ["/api/auth/refresh", "/api/auth/login"];
         return whiteList.some(url => config.url.endsWith(url))
-          ? new Promise(resolve => { 
-            if (config.url.endsWith("/api/auth/refresh")) { 
-              const data = getToken();
-               config.headers["Authorization"] = formatToken(data.refreshToken);
-            }
-            resolve(config)
-          })
+          ? new Promise(resolve => {
+              if (config.url.endsWith("/api/auth/refresh")) {
+                const data = getToken();
+                config.headers["Authorization"] = formatToken(
+                  data.refreshToken
+                );
+              }
+              resolve(config);
+            })
           : new Promise(resolve => {
               const data = getToken();
               if (data) {

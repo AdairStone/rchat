@@ -16,7 +16,7 @@ class HttpClient {
         });
 
         this.instance.interceptors.request.use(
-            (config: AxiosRequestConfig) => {
+            (config: any) => {
                 // 在请求发送之前可以进行一些处理，比如添加token
                 // const token = localStorage.getItem('token');
                 // if (token) {
