@@ -75,16 +75,16 @@ const roomMessages = computed(() => {
   return messagesStore.serverNotify?.message?.message_counts || [];
 });
 
-watch(
-  () => messagesStore.serverNotify,
-  (new_notify, old_notify) => {
-    // getRoomList({
-    //   ...{ site_id: siteStore.chatSite.site_id },
-    //   ...queryParams.value
-    // });
-  }
-  // { deep: true } // 深度监听
-);
+// watch(
+//   () => messagesStore.serverNotify,
+//   (new_notify, old_notify) => {
+//     // getRoomList({
+//     //   ...{ site_id: siteStore.chatSite.site_id },
+//     //   ...queryParams.value
+//     // });
+//   }
+//   // { deep: true } // 深度监听
+// );
 
 onMounted(() => {
   getRoomList({
