@@ -1,5 +1,5 @@
 import { fileURLToPath, URL } from 'node:url'
-
+import { include, exclude } from "./build/optimize";
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
@@ -31,6 +31,10 @@ export default defineConfig({
         ws: false, // 启用 Websocket 代理
       },
     },
+  },
+  optimizeDeps: {
+    include,
+    exclude
   },
   build: {
     target: 'es2015',

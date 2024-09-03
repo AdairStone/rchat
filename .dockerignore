@@ -1,0 +1,8 @@
+frontend/dist
+frontend/node_modules
+frontend/.husky
+frontend/.vscode
+chat-front/dist
+chat-front/node_modules
+chat-front/.husky
+chat-front/.vscode
