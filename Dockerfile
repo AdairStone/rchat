@@ -36,10 +36,12 @@ COPY chat-front/package.json chat-front/pnpm-lock.yaml ./chat-front/
 RUN cd frontend && pnpm install && cd ../chat-front && pnpm install
 
 # Build the frontend projects
-FROM dependencies AS build
+FROM node-base AS build
 COPY frontend/ ./frontend
 COPY chat-front/ ./chat-front
-RUN cd frontend && pnpm build && cd ../chat-front && pnpm build
+COPY --from=dependencies /app/frontend/node_modules /app/frontend/node_modules
+COPY --from=dependencies /app/chat-front/node_modules /app/chat-front/node_modules
+RUN cd frontend && pnpm install && pnpm build && cd ../chat-front && pnpm install && pnpm build
 
 # Final runtime image with a minimal base
 FROM debian:bookworm-slim AS base-runtime
