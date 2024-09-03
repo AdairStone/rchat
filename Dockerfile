@@ -51,5 +51,8 @@ RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debia
     nginx \
     libssl-dev \
     pkg-config \
-    && rm -rf /var/lib/apt/lists/* \
-CMD ["/app/backend"] & nginx -g 'daemon off;'
+    && rm -rf /var/lib/apt/lists/* 
+
+EXPOSE 8888 8889
+
+CMD ["/app/backend  && nginx -g 'daemon off;'"]
