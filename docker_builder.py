@@ -20,13 +20,13 @@ def main():
     build_with_cache(target="base-deps", image_name="rchat:base-deps")
 
     # Build Rust project using cache from base-deps
-    build_with_cache(target="project-builder", image_name="rchat:project-builder", cache_from="rchat:base-deps", no_cache=True)
+    build_with_cache(target="project-builder", image_name="rchat:project-builder", cache_from="rchat:base-deps")
 
     # Build Node.js dependencies with caching
     build_with_cache(target="dependencies", image_name="rchat:dependencies")
 
     # Build frontend projects using cache from dependencies
-    build_with_cache(target="build", image_name="rchat:build", cache_from="rchat:dependencies", no_cache=True)
+    build_with_cache(target="build", image_name="rchat:build", cache_from="rchat:dependencies")
 
     # Build final runtime image without cache
     build_with_cache(target="runner", image_name="rchat:runner", cache_from="rchat:project-builder", no_cache=True)

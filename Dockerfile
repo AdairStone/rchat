@@ -33,7 +33,7 @@ FROM node-base AS dependencies
 WORKDIR /app
 COPY frontend/package.json frontend/pnpm-lock.yaml ./frontend/
 COPY chat-front/package.json chat-front/pnpm-lock.yaml ./chat-front/
-RUN cd frontend && pnpm install --frozen-lockfile && cd ../chat-front && pnpm install --frozen-lockfile
+RUN cd frontend && pnpm install && cd ../chat-front && pnpm install
 
 # Build the frontend projects
 FROM dependencies AS build
