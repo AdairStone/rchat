@@ -43,7 +43,7 @@ COPY backend/.env ./.env
 COPY --from=builder /usr/src/app/target/release/backend /app/backend
 COPY --from=front-build /app/frontend/dist /app/frontend
 COPY --from=front-build /app/chat-front/dist /app/chat-front
-COPY nginx.conf /etc/nginx/sites-available/default
+
 RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
     apt-get update \
     && apt-get install -y \
@@ -53,6 +53,10 @@ RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debia
     pkg-config \
     && rm -rf /var/lib/apt/lists/* 
 
+COPY nginx.conf /etc/nginx/sites-available/default
+
+RUN sed -i 's/user www-data;/user root;/g' /etc/nginx/nginx.conf
+
 EXPOSE 8888 8889
 
-CMD ["/app/backend  && nginx -g 'daemon off;'"]
+CMD "/app/backend"  & nginx -g 'daemon off;'
