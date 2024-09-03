@@ -16,6 +16,7 @@ use zino_core::{
     warn, Map, Uuid,
 };
 
+use crate::app_config::SETTINGS;
 use crate::utils::date_utils::current_date;
 use crate::utils::date_utils::current_s;
 use crate::utils::date_utils::date_ymdhms;
@@ -100,7 +101,7 @@ pub async fn load_site_js(req: Request) -> Result<HttpResponse> {
                             if site.is_some() {
                                 let tera: Tera = Tera::new("static/**/*").unwrap();
                                 let mut context = Context::new();
-                                context.insert("script_home", "http://chat.local.com"); //replcace from config
+                                context.insert("script_home", &SETTINGS.script_home); //replcace from config
                                 context.insert("site_key", key); //replcace from config
                                 let ukey = match ChatService::gen_room_key().await {
                                     Ok(key) => key,

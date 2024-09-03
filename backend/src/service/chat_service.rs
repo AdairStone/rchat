@@ -1,7 +1,5 @@
 use crate::{
-    domain::website_config::WebsiteConfig,
-    model::{ChatMessage, ChatRoom, ChatWebsite},
-    utils::{self, generate_random_string},
+    app_config::SETTINGS, domain::website_config::WebsiteConfig, model::{ChatMessage, ChatRoom, ChatWebsite}, utils::{self, generate_random_string}
 };
 use zino_core::{
     datetime::DateTime, error::Error, extension::JsonObjectExt, json, model::Query, orm::{ModelAccessor, Schema}, warn, JsonValue, Map, Uuid
@@ -28,7 +26,7 @@ impl ChatService {
             website_config.user_id.to_string(),
         ));
         if let Some(mut chat_website) = ChatWebsite::find_one::<ChatWebsite>(&query).await? {
-            chat_website.script_home = "http://chat.local.com".to_owned();
+            chat_website.script_home = SETTINGS.script_home.clone();
             return Ok(Some(chat_website));
         } else {
             let mut chat_website = ChatWebsite::default();
@@ -38,7 +36,7 @@ impl ChatService {
             chat_website.welcome_slogan = website_config.welcome_slogan.clone();
             chat_website.position = website_config.position.clone();
             chat_website.user_id = website_config.user_id;
-            chat_website.script_home = "http://chat.local.com".to_owned();
+            chat_website.script_home = SETTINGS.script_home.clone();
             let result = chat_website.clone();
             chat_website.insert().await?;
             return Ok(Some(result));
@@ -57,7 +55,7 @@ impl ChatService {
             chat_website.position = website_config.position.clone();
             chat_website.update_at = DateTime::now();
             chat_website.clone().update().await?;
-            chat_website.script_home = "http://chat.local.com".to_owned();
+            chat_website.script_home = SETTINGS.script_home.clone();
             return Ok(Some(chat_website));
         } else {
             return Err(warn!("error save website config"));

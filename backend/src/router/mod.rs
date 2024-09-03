@@ -1,7 +1,7 @@
 use std::sync::{atomic::AtomicUsize, Arc};
 
 use crate::{
-    controller::{auth, chat_ctl, file, file_ctl, stats, user},
+    controller::{auth, chat_ctl, file, file_ctl, ip_ctl, stats, user},
     middleware,
     model::Tag,
     wsserver::{
@@ -128,6 +128,7 @@ fn chat_router(cfg: &mut ServiceConfig) {
             .route("/save-site", post().to(chat_ctl::save_site_config))
             .route("/list-rooms", get().to(chat_ctl::list_rooms))
             .route("/list-chatmessage", post().to(chat_ctl::list_chatmessage))
+            .route("/ip-info", post().to(ip_ctl::ip_detail))
             .wrap(middleware::UserSessionInitializer),
     );
     
@@ -141,6 +142,5 @@ fn chat_outer_router(cfg: &mut ServiceConfig) {
             .route("/upload", post().to(file_ctl::upload))
             .route("/upload", delete().to(file_ctl::delete_file))
             .route("/site", post().to(chat_ctl::load_site))
-            
     );
 }

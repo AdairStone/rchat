@@ -4,3 +4,4 @@ oss_access_key_secret = ""
 oss_endpoint = "oss-cn-shanghai.aliyuncs.com"
 oss_bucket_name = ""
 time_zone = 8
+script_home = "http://192.168.0.105:18888"

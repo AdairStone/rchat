@@ -15,6 +15,7 @@ pub struct Settings {
     pub oss_endpoint: String,
     pub oss_bucket_name: String,
     pub time_zone: i32,
+    pub script_home: String,
 }
 
 impl Settings {
