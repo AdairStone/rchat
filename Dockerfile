@@ -15,8 +15,8 @@ RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debia
     libssl-dev \
     pkg-config \
     && git config --global http.sslVerify false \
-    && rm -rf /var/lib/apt/lists/* \
-    && cargo build --release
+    && rm -rf /var/lib/apt/lists/*
+RUN cargo build --release
 
 FROM node:20.14 AS front-build
 RUN npm config set registry http://registry.npmmirror.com \

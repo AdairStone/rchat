@@ -6,3 +6,6 @@ chat-front/dist
 chat-front/node_modules
 chat-front/.husky
 chat-front/.vscode
+backend/logs
+backend/target
+backend/.vscode
