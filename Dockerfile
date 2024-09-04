@@ -27,16 +27,8 @@ FROM node:20.14 AS node-base
 # Set up npm mirror and install pnpm globally
 RUN npm config set registry http://registry.npmmirror.com && npm install -g pnpm
 
-# Cache npm dependencies
-FROM node-base AS dependencies
-
-WORKDIR /app
-COPY frontend/package.json frontend/pnpm-lock.yaml ./frontend/
-COPY chat-front/package.json chat-front/pnpm-lock.yaml ./chat-front/
-RUN cd frontend && pnpm install && cd ../chat-front && pnpm install
-
 # Build the frontend projects
-FROM dependencies AS build
+FROM node-base AS build
 WORKDIR /app
 COPY frontend/ /app/frontend
 COPY chat-front/ /app/chat-front
