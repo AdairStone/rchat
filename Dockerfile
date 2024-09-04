@@ -10,16 +10,10 @@ RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debia
 
 # Cache Rust dependencies
 FROM rust-base-builder AS base-deps
-
 WORKDIR /usr/src/app
 COPY backend/ ./
 RUN cargo build --release
 
-# Build the Rust project
-FROM base-deps AS project-builder
-WORKDIR /usr/src/app
-COPY backend/ ./
-RUN cargo build --release
 
 # Base image for building frontend projects
 FROM node:20.14 AS node-base
@@ -47,14 +41,14 @@ RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debia
 # Runtime stage
 FROM base-runtime AS runner
 WORKDIR /app
-COPY --from=project-builder /usr/src/app/target/release/backend /app/backend
+COPY --from=base-deps /usr/src/app/target/release/backend /app/backend/backend
 COPY --from=build /app/frontend/dist /app/frontend
 COPY --from=build /app/chat-front/dist /app/chat-front
-COPY backend/config ./config
-COPY backend/static ./static
-COPY backend/public ./public
-COPY backend/.env ./.env
+COPY backend/config ./backend/config
+COPY backend/static ./backend/static
+COPY backend/public ./backend/public
+COPY backend/.env ./backend/.env
 COPY nginx.conf /etc/nginx/sites-available/default
 RUN sed -i 's/user www-data;/user root;/g' /etc/nginx/nginx.conf
 EXPOSE 8888 8889
-CMD ["/app/backend", "&", "nginx", "-g", "daemon off;"]
+CMD ["/app/backend/backend", "&", "nginx", "-g", "daemon off;"]
