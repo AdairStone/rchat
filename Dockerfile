@@ -14,7 +14,6 @@ WORKDIR /usr/src/app
 COPY backend/ ./
 RUN cargo build --release
 
-
 # Base image for building frontend projects
 FROM node:20.14 AS node-base
 
@@ -35,7 +34,7 @@ RUN npm config set registry http://192.168.0.105:4873/ && \
 FROM debian:bookworm-slim AS base-runtime
 
 RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
-    apt-get update && apt-get install -y openssl nginx vi ps && \
+    apt-get update && apt-get install -y openssl nginx vim procps && \
     rm -rf /var/lib/apt/lists/*
 
 # Runtime stage
