@@ -37,11 +37,12 @@ RUN cd frontend && pnpm install && cd ../chat-front && pnpm install
 
 # Build the frontend projects
 FROM node-base AS build
-COPY frontend/ ./frontend
-COPY chat-front/ ./chat-front
+WORKDIR /app
+COPY frontend/ /app/frontend
+COPY chat-front/ /app/chat-front
 COPY --from=dependencies /app/frontend/node_modules /app/frontend/node_modules
 COPY --from=dependencies /app/chat-front/node_modules /app/chat-front/node_modules
-RUN cd frontend && pnpm install && pnpm build && cd ../chat-front && pnpm install && pnpm build
+RUN cd /app/frontend && pnpm install && pnpm build && cd /app/chat-front && pnpm install && pnpm build
 
 # Final runtime image with a minimal base
 FROM debian:bookworm-slim AS base-runtime
