@@ -50,4 +50,4 @@ COPY backend/.env ./backend/.env
 COPY nginx.conf /etc/nginx/sites-available/default
 RUN sed -i 's/user www-data;/user root;/g' /etc/nginx/nginx.conf
 EXPOSE 8888 8889
-CMD ["/app/backend/backend", "&", "nginx", "-g", "daemon off;"]
+CMD ["cd /app/backend/ && ./backend", "&", "/usr/sbin/nginx", "-g", "daemon off;"]
