@@ -25,14 +25,16 @@ RUN cargo build --release
 FROM node:20.14 AS node-base
 
 # Set up npm mirror and install pnpm globally
-RUN npm config set registry http://registry.npmmirror.com && npm install -g pnpm
+RUN npm config set registry http://192.168.0.105:4873/ && npm install -g pnpm
 
 # Build the frontend projects
 FROM node-base AS build
 WORKDIR /app
 COPY frontend/ /app/frontend
 COPY chat-front/ /app/chat-front
-RUN cd /app/frontend && pnpm install && pnpm build && cd /app/chat-front && pnpm install && pnpm build
+RUN set registry http://192.168.0.105:4873/ && \
+    cd /app/frontend && pnpm install && pnpm build && \
+    cd /app/chat-front && pnpm install && pnpm build
 
 # Final runtime image with a minimal base
 FROM debian:bookworm-slim AS base-runtime
