@@ -25,14 +25,15 @@ RUN cargo build --release
 FROM node:20.14 AS node-base
 
 # Set up npm mirror and install pnpm globally
-RUN npm config set registry http://192.168.0.105:4873/ && npm install -g pnpm
+RUN npm config set registry http://192.168.0.105:4873/ && \
+    npm install -g pnpm
 
 # Build the frontend projects
 FROM node-base AS build
 WORKDIR /app
 COPY frontend/ /app/frontend
 COPY chat-front/ /app/chat-front
-RUN set registry http://192.168.0.105:4873/ && \
+RUN npm config set registry http://192.168.0.105:4873/ && \
     cd /app/frontend && pnpm install && pnpm build && \
     cd /app/chat-front && pnpm install && pnpm build
 
@@ -54,7 +55,6 @@ COPY backend/static ./static
 COPY backend/public ./public
 COPY backend/.env ./.env
 COPY nginx.conf /etc/nginx/sites-available/default
-RUN ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default && \
-    sed -i 's/user www-data;/user root;/g' /etc/nginx/nginx.conf
+RUN sed -i 's/user www-data;/user root;/g' /etc/nginx/nginx.conf
 EXPOSE 8888 8889
 CMD ["/app/backend", "&", "nginx", "-g", "daemon off;"]

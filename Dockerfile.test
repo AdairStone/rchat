@@ -3,9 +3,7 @@ FROM node:20.14 AS node-base
 
 # Set up npm mirror and install pnpm globally
 RUN npm config set registry http://192.168.0.105:4873/ && \
-    npm config set _auth YWRhOjEyMzQ1Ng== && \
-    npm config set email ada@adabibi.com && \
-    npm config set always-auth true && \
+    npm config set "//192.168.0.105:4873/:_auth" YWRhOjEyMzQ1Ng== && \
     npm install -g pnpm
 
 # Build the frontend projects
@@ -14,8 +12,6 @@ WORKDIR /app
 COPY frontend/ /app/frontend
 COPY chat-front/ /app/chat-front
 RUN npm config set registry http://192.168.0.105:4873/ && \
-    npm config set _auth YWRhOjEyMzQ1Ng== && \
-    npm config set email ada@adabibi.com && \
-    npm config set always-auth true && \
+    npm config set "//192.168.0.105:4873/:_auth" YWRhOjEyMzQ1Ng== && \
     cd /app/frontend && pnpm install && pnpm build && \
     cd /app/chat-front && pnpm install && pnpm build
