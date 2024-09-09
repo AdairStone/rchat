@@ -100,17 +100,16 @@ impl ChatService {
         site_key: String,
         room_key: Option<String>,
     ) -> Result<Option<ChatRoom>, Error> {
-        let rkey = if let Some(k) = room_key {
-            k
-        } else {
-            Self::gen_room_key().await?
-        };
-        let mut query: Query = Query::new(Map::from_entry("room_key", rkey.clone()));
-
         let mut site_query: Query = Query::new(Map::from_entry("site_key", site_key.clone()));
         site_query.add_filter("status", "confirmed");
         if let Some(chat_website) = ChatWebsite::find_one::<ChatWebsite>(&site_query).await? {
             let site_id = chat_website.id();
+            let rkey = if let Some(k) = room_key {
+                k
+            } else {
+                Self::gen_room_key(site_id).await?
+            };
+            let mut query: Query = Query::new(Map::from_entry("room_key", rkey.clone()));    
             query.add_filter("room_site_id", site_id.clone().to_string());
             if let Ok(room_exists) = ChatRoom::find_one::<ChatRoom>(&query).await {
                 if let Some(mut room) = room_exists {
@@ -122,6 +121,7 @@ impl ChatService {
                 } else {
                     let mut chat_room = ChatRoom::default();
                     chat_room.id = Uuid::now_v7();
+                    chat_room.status = "active".to_owned();
                     chat_room.room_site_id = site_id.clone();
                     chat_room.room_key = rkey;
                     let room = chat_room.clone();
@@ -136,13 +136,14 @@ impl ChatService {
         }
     }
 
-    pub async fn gen_room_key() -> Result<String, Error> {
+    pub async fn gen_room_key(site_id: &Uuid) -> Result<String, Error> {
         // retry three times
         let key_size = 15;
         let mut i = 0;
         let mut room_key = utils::generate_random_string(key_size);
         loop {
-            let query = Query::new(Map::from_entry("room_key", room_key.clone()));
+            let mut query = Query::new(Map::from_entry("room_key", room_key.clone()));
+            query.add_filter("room_site_id", site_id.to_string());
             if let Some(_room) = ChatRoom::find_one::<ChatRoom>(&query).await? {
                 i = i + 1;
                 if i > 4 {

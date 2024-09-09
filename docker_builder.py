@@ -17,11 +17,11 @@ def build_with_cache(target, image_name, cache_from=None, no_cache=False):
 
 def main():
     # Build Rust dependencies stage with caching
-    build_with_cache(target="base-deps", image_name="rchat:base-deps")
+    # build_with_cache(target="base-deps", image_name="rchat:base-deps")
     # Build frontend projects using cache from dependencies
-    build_with_cache(target="build", image_name="rchat:build")
+    # build_with_cache(target="build", image_name="rchat:build")
     # Build final runtime image without cache
-    build_with_cache(target="runner", image_name="rchat:runner", cache_from="rchat:project-builder")
+    build_with_cache(target="runner", image_name="rchat:runner")
 
 if __name__ == "__main__":
     main()

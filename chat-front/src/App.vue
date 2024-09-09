@@ -10,9 +10,12 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
+import { defineComponent, ref, onMounted } from 'vue';
 import ChatModal from './components/ChatModal.vue';
 import { Icon } from '@iconify/vue';
+import { eraseCookie, setCookie } from './utils/cookiesUtil';
+// import { useRoute } from 'vue-router';
+
 
 export default defineComponent({
   name: 'App',
@@ -22,6 +25,21 @@ export default defineComponent({
   },
   setup() {
     const isChatOpen = ref(false);
+    const queryParams = new URLSearchParams(window.location.search);
+    eraseCookie("bibirchat_site_key");
+    eraseCookie("bibirchat_ukey");
+
+    onMounted(() => {
+      let site_key = queryParams.get("site_key");
+      let ukey = queryParams.get("ukey");
+      console.log("bibirchat_site_key", queryParams.get("site_key"))
+      console.log("bibirchat_ukey", queryParams.get("ukey"))
+      if (site_key !== null && ukey !== null) {
+        setCookie("bibirchat_site_key", site_key, 7);
+        setCookie("bibirchat_ukey", ukey, 7);
+        openModal();
+      }
+    });
 
     const openModal = () => {
       isChatOpen.value = true;

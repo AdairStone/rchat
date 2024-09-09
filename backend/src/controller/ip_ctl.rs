@@ -1,6 +1,5 @@
 use crate::service::ip_service::IpService;
 use crate::utils::str_from_map_required;
-use std::collections::HashMap;
 use zino::prelude::{Rejection, RequestContext};
 use zino::{Request, Response, Result};
 use zino_core::error::Error;

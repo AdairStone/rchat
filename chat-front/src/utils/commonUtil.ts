@@ -43,7 +43,17 @@ export function downloadFile(url: string, filename: string) {
         })
         .catch(error => console.error('Download error:', error));
 }
+
 // 定义 sleep 函数
 export const sleep = (ms: number) => {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+export function playSound(src: string): void {
+    const audio = new Audio(src);
+    audio.play().catch(error => {
+        console.error("播放音频时出错:", error);
+    });
+}
+
+

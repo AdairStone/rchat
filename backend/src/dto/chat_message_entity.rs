@@ -101,7 +101,7 @@ impl ChatNotify {
         if let Ok(site)  = ChatWebsite::find_one::<ChatWebsite>(&query).await {
             if let Some(s) = site {
                 let mut rooms_query = Query::from_entry("room_site_id", s.id.to_string());
-                rooms_query.add_filter("status", "active");
+                // rooms_query.add_filter("status", "active");
                 let date = current_date() - Duration::hours(24);
                 rooms_query.add_filter("update_at", json!({"$gt": date}));
                 if let Ok(rooms) = ChatRoom::find::<ChatRoom>(&rooms_query).await{

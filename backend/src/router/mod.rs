@@ -138,9 +138,11 @@ fn chat_outer_router(cfg: &mut ServiceConfig) {
     cfg.service(
         scope("/load")
             .route("/load.js", get().to(chat_ctl::load_site_js))
+            .route("/direct", get().to(chat_ctl::direct_chat))
             .route("/messages", post().to(chat_ctl::list_chatmessage_from_chat))
             .route("/upload", post().to(file_ctl::upload))
             .route("/upload", delete().to(file_ctl::delete_file))
             .route("/site", post().to(chat_ctl::load_site))
+
     );
 }

@@ -4,3 +4,4 @@ oss_access_key_secret = ""
 oss_endpoint = "oss-cn-shanghai.aliyuncs.com"
 oss_bucket_name = ""
 time_zone = 8
+script_home = "http://chat.local.com"

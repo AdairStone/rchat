@@ -45,7 +45,6 @@ pub async fn upload(mut req: Request) -> Result {
     Ok(res.into())
 }
 
-
 pub async fn delete_file(mut req: Request) -> Result{
     let mut res = Response::default().context(&req);
     let mut data: HashMap<String, String> = HashMap::new();

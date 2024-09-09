@@ -63,13 +63,31 @@ pub async fn chat_route(
         };
         user_type = 0;
     } else if client == "1" {// 客户端
-        room = match ChatService::new_room(key.clone(), room_key).await {
-            Ok(ro) => if ro.is_some() { ro.unwrap() } else { return Err(error::ErrorBadRequest("chat start error for not created"));},
+        let query = Query::from_entry("room_key", room_key.clone());
+        room = match ChatRoom::find_one::<ChatRoom>(&query).await {
+            Ok(ro) => if ro.is_some() { 
+                let mut rom = ro.unwrap().clone();
+                rom.status = "active".to_owned();
+                let mut room_clone = rom.clone();
+                room_clone.status = "active".to_owned();
+                match room_clone.update().await {
+                    Ok(_) => tracing::info!("join room to active"),
+                    Err(e) => return Err(error::ErrorInternalServerError(format!("start fail for error:{}",e))),
+                }
+                rom
+            } else { return Err(error::ErrorBadRequest("chat start error for not created"));},
             Err(e) =>  {
                 tracing::error!("start fail for error:{}", e);
                 return Err(error::ErrorInternalServerError(format!("start fail for error:{}",e)));
             },
         };
+        // room = match ChatService::new_room(key.clone(), room_key).await {
+        //     Ok(ro) => if ro.is_some() { ro.unwrap() } else { return Err(error::ErrorBadRequest("chat start error for not created"));},
+        //     Err(e) =>  {
+        //         tracing::error!("start fail for error:{}", e);
+        //         return Err(error::ErrorInternalServerError(format!("start fail for error:{}",e)));
+        //     },
+        // };
         user_type = 1;
         room.client_info = Some(parser_client_info(&req)?);
         let room_clone = room.clone();

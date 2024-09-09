@@ -90,10 +90,11 @@ import FilePondPluginImagePreview from 'filepond-plugin-image-preview/dist/filep
 import 'emoji-mart-vue-fast/css/emoji-mart.css'
 import 'filepond/dist/filepond.min.css';
 import 'filepond-plugin-image-preview/dist/filepond-plugin-image-preview.min.css';
-import { formatDateTime, isImagePath, isVideoUrl, downloadFile } from '@/utils/commonUtil';
+import { formatDateTime, isImagePath, isVideoUrl, downloadFile, playSound } from '@/utils/commonUtil';
 import ImagePreview from './ImagePreview.vue'
 import { WebSocketService } from '@/utils/websocketService';
 import { loadMessages, loadSite } from '@/api/chat';
+import { getCookie } from '@/utils/cookiesUtil';
 
 const FilePond = vueFilePond(FilePondPluginFileValidateType, FilePondPluginImagePreview);
 
@@ -208,19 +209,39 @@ export default defineComponent({
                 }
             }
         }
+        const queryParams = new URLSearchParams(window.location.search);
+        const getSiteKey = () => {
+            if (getCookie('bibirchat_site_key') === null) {
+                return queryParams.get("site_key");
+            }
+            return getCookie('bibirchat_site_key');
+        }
+        const getUKey = () => {
+            if (getCookie('bibirchat_ukey') === null) {
+                return queryParams.get("ukey");
+            }
+            return getCookie('bibirchat_ukey');
+        }
         const queryFull = ref(false);
         const queryCondition = ref({
             page: 1,
             page_size: 10,
             ts: null,
-            site_key: Cookies.get('bibirchat_site_key') ?? 'pbAuq7PVr2gh2jp',
-            room_key: Cookies.get('bibirchat_ukey') ?? '0QsXuCkekVFG2cP'
+            site_key: getSiteKey(),
+            room_key: getUKey()
         });
         const getMessages = () => {
             // messages.value = [];
             if (queryFull.value == true) {
                 return;
             }
+            if (queryCondition.value.site_key == null) {
+                queryCondition.value.site_key = getSiteKey();
+            }
+            if (queryCondition.value.room_key == null) {
+                queryCondition.value.room_key = getUKey();
+            }
+            console.log("queryCondition.value:", queryCondition.value);
             loadMessages(queryCondition.value).then((res: any) => {
                 let size = res.data?.data?.length;
                 res.data?.data?.forEach((item: any) => {
@@ -253,17 +274,25 @@ export default defineComponent({
         }
         const websocketService = new WebSocketService();
         const connect = () => {
-            const ukey = Cookies.get('bibirchat_ukey') ?? '0QsXuCkekVFG2cP';// for test
-            const skey = Cookies.get('bibirchat_site_key') ?? 'pbAuq7PVr2gh2jp'; // for test
-            const sserver = Cookies.get('bibirchat_sserver') ?? 'http://chat.local.com'; // for test
+            const ukey = getUKey();
+            const skey = getSiteKey();
+            const sserver = getCookie('bibirchat_sserver') === null ? "" : getCookie('bibirchat_sserver');
             console.log('uskey', ukey, skey);
             const url = sserver + '/clientchat?site_key=' + skey + '&room_key=' + ukey + '&client=1';
+            console.log("ws url", url);
             websocketService.connect(url);
             websocketService.onMessage((data) => {
                 console.log(data)
                 const jsonData = JSON.parse(data);
                 if (jsonData.str_files) {
                     jsonData.files = JSON.parse(jsonData.str_files);
+                }
+                if (jsonData?.notify !== '') {
+                    playSound('/audio/service_tip.MP3');
+                } else {
+                    if (!props.isOpen) {
+                        playSound('/audio/message_tip.MP3');
+                    }
                 }
                 messages.value.push(jsonData);
                 scrollToBottom();
@@ -533,6 +562,7 @@ export default defineComponent({
     text-align: left;
     padding: 5px;
     color: #f5f5f5;
+    min-height: 60px;
 
     .chat-title {
         font-size: 20px;

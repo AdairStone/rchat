@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use actix_web::http::StatusCode;
 use actix_web::HttpResponse;
 use tera::{Context, Tera};
 use zino::prelude::Error;
@@ -11,13 +12,14 @@ use zino_core::{
     json,
     model::Query,
     orm::Schema,
-    response::{ExtractRejection, Rejection, StatusCode},
+    response::{ExtractRejection, Rejection},
     validation::{UuidValidator, Validation, Validator},
     warn, Map, Uuid,
 };
 
 use crate::app_config::SETTINGS;
 use crate::utils::date_utils::current_date;
+use crate::utils::date_utils::current_ms;
 use crate::utils::date_utils::current_s;
 use crate::utils::date_utils::date_ymdhms;
 use crate::utils::str_from_map;
@@ -103,12 +105,21 @@ pub async fn load_site_js(req: Request) -> Result<HttpResponse> {
                                 let mut context = Context::new();
                                 context.insert("script_home", &SETTINGS.script_home); //replcace from config
                                 context.insert("site_key", key); //replcace from config
-                                let ukey = match ChatService::gen_room_key().await {
+                                let ukey = match ChatService::gen_room_key(&site.unwrap().id).await
+                                {
                                     Ok(key) => key,
                                     Err(e) => {
                                         return Err(Rejection::internal_server_error(e).into())
                                     }
                                 };
+                                match ChatService::new_room(key.to_string().clone(), Some(ukey.clone())).await {
+                                    Ok(_o)=>{
+                                        tracing::info!("create room while load js");
+                                    },
+                                    Err(e)=>{
+                                        return Err(Rejection::internal_server_error(e).into())
+                                    }
+                                }
                                 context.insert("ukey", &ukey);
 
                                 let rendered = tera.render("load.js", &context).unwrap();
@@ -129,6 +140,41 @@ pub async fn load_site_js(req: Request) -> Result<HttpResponse> {
                 } else {
                     return Err(Rejection::internal_server_error(warn!("site inactive")).into());
                 }
+            }
+            Err(e) => {
+                return Err(Rejection::internal_server_error(e).into());
+            }
+        }
+    } else {
+        return Err(Rejection::internal_server_error(warn!("need key")).into());
+    }
+}
+
+pub async fn direct_chat(req: Request) -> Result {
+    if let Some(key) = req.get_query("key") {
+        let query: Query = Query::new(Map::from_entry("site_key", key));
+        match ChatWebsite::find_one::<ChatWebsite>(&query).await {
+            Ok(site) => {
+                let ukey = match ChatService::gen_room_key(&site.unwrap().id).await {
+                    Ok(key) => key,
+                    Err(e) => return Err(Rejection::internal_server_error(e).into()),
+                };
+                match ChatService::new_room(key.to_string().clone(), Some(ukey.clone())).await {
+                    Ok(_o)=>{
+                        tracing::info!("create room while direct chat");
+                    },
+                    Err(e)=>{
+                        return Err(Rejection::internal_server_error(e).into())
+                    }
+                }
+                // let mut resp = Response::new(StatusCode::MOVED_PERMANENTLY);
+                let resp = &mut Response::default().context(&req);
+                let script_home = SETTINGS.script_home.clone();
+                let rand = current_ms();
+                let redirect_url = format!("{script_home}?site_key={key}&ukey={ukey}&rand={rand}");
+                resp.set_code(StatusCode::MOVED_PERMANENTLY);
+                resp.insert_header("Location", &redirect_url);
+                return Ok(resp.clone().into());             
             }
             Err(e) => {
                 return Err(Rejection::internal_server_error(e).into());
@@ -209,7 +255,7 @@ pub async fn list_chatmessage(mut req: Request) -> Result {
         .extract(&req)?;
     let user_id: &Uuid = user_session.user_id();
     let mut query = Query::from_entry("user_id", user_id.to_string());
-   
+
     let site_id = str_from_map_required("site_id", &body)?;
 
     query.add_filter("site_id", site_id);
