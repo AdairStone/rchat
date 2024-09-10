@@ -1,8 +1,8 @@
 # --env=dev
 
-name = "data-cube"
+name = "rchat"
 version = "0.6.4"
-secret = "wangdeman"
+secret = "rchat"
 
 [dirs]
 uploads = "local/uploads"
@@ -31,19 +31,18 @@ max-rows = 10000
 time-zone = "Asia/Shanghai"
 
 [[postgres]]
-host = "192.168.0.105"
+host = "postgres"
 port = 5432
-database = "data_cube"
+database = "rchat"
 username = "postgres"
 password = "123456"
-
 
 [tracing]
 filter = "debug,sqlx=info,zino=info,zino_core=info"
 
 [metrics]
 exporter = "prometheus"
-host = "192.168.0.105"
+host = "postgres"
 port = 9090
 
 [jwt]
