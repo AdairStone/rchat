@@ -16,17 +16,22 @@ services:
       - rchat_postgres_data:/var/lib/postgresql/data
 
   app:
-    image: rchat:latest
+    image: adabibia/rchat:latest
     container_name: rchat
     depends_on:
       - redis
       - postgres
     ports:
-      - 18888:18888
-      - 18889:18889
+      - 18888:8888
+      - 18889:8889
     environment:
       DATABASE_URL: postgres://rchat:123456@postgres:5432/rchat
       REDIS_URL: redis://redis:6379
+    volumes:
+      - rchat_backend_config:/app/backend/config
+      - rchat_backend_logs:/app/backend/logs
 
 volumes:
   rchat_postgres_data:
+  rchat_backend_config:
+  rchat_backend_logs:

@@ -34,7 +34,7 @@ time-zone = "Asia/Shanghai"
 host = "postgres"
 port = 5432
 database = "rchat"
-username = "postgres"
+username = "rchat"
 password = "123456"
 
 [tracing]

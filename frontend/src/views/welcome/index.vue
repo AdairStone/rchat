@@ -29,7 +29,7 @@ const configSite = async () => {
     .then(res => {
       siteData.value = res.data;
       code.value =
-        '\<scrit src="' +
+        '\<script src="' +
         siteData.value.script_home +
         "/load/load.js?key=" +
         siteData.value.site_key +
